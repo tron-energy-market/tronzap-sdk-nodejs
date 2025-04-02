@@ -1,0 +1,82 @@
+{
+  "name": "tronzap-sdk",
+  "version": "1.0.0",
+  "description": "Official Node.js SDK for the TronZap API. TronZap is a platform for renting energy on the TRON blockchain. Buy TRON energy for cheap USDT transfers on TronZap.com",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.es.md",
+    "README.pt-br.md",
+    "README.ru.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "TronZap",
+    "Tron",
+    "Trx",
+    "Tron API",
+    "Trx API",
+    "TRX energy",
+    "TRON energy api",
+    "buy trx energy",
+    "buy tron energy",
+    "trx energy market",
+    "tron energy market",
+    "USDT",
+    "TRC20",
+    "TRC-20",
+    "cryptocurrency",
+    "blockchain",
+    "crypto transfers",
+    "energy",
+    "crypto"
+  ],
+  "author": "Tron Energy Market",
+  "license": "MIT",
+  "contributors": [
+    {
+      "name": "Tron Energy Market",
+      "email": "support@tronzap.com",
+      "url": "https://github.com/tron-energy-market"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tron-energy-market/tronzap-sdk-nodejs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tron-energy-market/tronzap-sdk-nodejs/issues"
+  },
+  "homepage": "https://tronzap.com/",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "tsup": "^8.0.2",
+    "typescript": "^5.3.3",
+    "vitest": "^1.3.1"
+  }
+}
