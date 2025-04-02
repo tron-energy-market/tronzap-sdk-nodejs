@@ -1,6 +1,6 @@
 # TronZap SDK para Node.js
 
-**[English](README.md)** | [Español](README.es.md) | [Português](README.pt-br.md) | [Русский](README.ru.md)
+[English](README.md) | **[Español](README.es.md)** | [Português](README.pt-br.md) | [Русский](README.ru.md)
 
 SDK oficial de Node.js para la API de TronZap.
 Este SDK te permite integrar fácilmente los servicios de TronZap para el alquiler de energía TRON.
