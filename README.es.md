@@ -7,7 +7,7 @@ Este SDK te permite integrar fácilmente los servicios de TronZap para el alquil
 
 TronZap.com te permite [comprar energía TRON](https://tronzap.com/), haciendo que las transferencias de USDT (TRC20) sean más baratas al reducir significativamente las tarifas de transacción.
 
-👉 [Regístrate para obtener una clave API](https://tronzap.com) para comenzar a usar la API de TronZap e integrarla a través del SDK.
+👉 [Regístrate para obtener una clave API](https://tronzap.com) para comenzar a usar la Tron Energy API e integrarla a través del SDK.
 
 ## Instalación
 

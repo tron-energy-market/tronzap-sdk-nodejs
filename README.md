@@ -7,7 +7,7 @@ This SDK allows you to easily integrate with TronZap services for TRON energy re
 
 TronZap.com allows you to [buy TRON energy](https://tronzap.com/), making USDT (TRC20) transfers cheaper by significantly reducing transaction fees.
 
-👉 [Register for an API key](https://tronzap.com) to start using TronZap API and integrate it via the SDK.
+👉 [Register for an API key](https://tronzap.com) to start using Tron Energy API and integrate it via the SDK.
 
 ## Installation
 
