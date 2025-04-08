@@ -56,8 +56,8 @@ console.log(calculation);
 // Create energy transaction
 const transaction = await client.createEnergyTransaction(
   'TRON_WALLET_ADDRESS',
-  65150,
-  1,
+  65150, // From 32000
+  1, // Possible values: 1 or 24 hours
   'my-tx-id',  // Optional external ID
   true        // Optional: activate address if needed
 );

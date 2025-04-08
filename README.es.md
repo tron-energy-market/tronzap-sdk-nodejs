@@ -56,8 +56,8 @@ console.log(calculation);
 // Crear transacción de energía
 const transaction = await client.createEnergyTransaction(
   'DIRECCION_BILLETERA_TRON',
-  65150,
-  1,
+  65150, // Desde 32000
+  1, // Valores posibles: 1 o 24 horas
   'mi-tx-id',  // ID externo opcional
   true        // Opcional: activar dirección si es necesario
 );

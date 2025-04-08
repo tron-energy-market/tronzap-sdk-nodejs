@@ -56,8 +56,8 @@ console.log(calculation);
 // Criar transação de energia
 const transaction = await client.createEnergyTransaction(
   'ENDERECO_CARTEIRA_TRON',
-  65150,
-  1,
+  65150, // A partir de 32000
+  1, // Valores possíveis: 1 ou 24 horas
   'meu-tx-id',  // ID externo opcional
   true        // Opcional: ativar endereço se necessário
 );

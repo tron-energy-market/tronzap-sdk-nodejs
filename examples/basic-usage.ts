@@ -21,15 +21,19 @@ async function main() {
     // Calculate energy cost for a TRON address
     const address = 'TRON_WALLET_ADDRESS'; // Replace with actual TRON address
     console.log('\nCalculating energy cost...');
-    const calculation = await client.calculate(address, 65150);
+
+    const energyAmount = 65150; // From 32000
+    const duration = 1; // Possible values: 1 or 24 hours
+
+    const calculation = await client.calculate(address, energyAmount);
     console.log('Energy cost calculation:', calculation);
 
     // Create an energy transaction
     console.log('\nCreating energy transaction...');
     const transaction = await client.createEnergyTransaction(
       address,
-      65150,
-      1,
+      energyAmount,
+      duration,
       'example-tx-' + Date.now(),
       true
     );
