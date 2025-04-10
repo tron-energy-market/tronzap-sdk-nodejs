@@ -3,6 +3,7 @@ import {
   TronZapConfig,
   Service,
   Balance,
+  EnergyEstimate,
   Calculation,
   Transaction,
   DirectRechargeInfo,
