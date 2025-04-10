@@ -17,6 +17,17 @@ export interface Balance {
   currency: string;
 }
 
+export interface EnergyEstimate {
+  energy: number;
+  duration: number;
+  price: number;
+  activation_fee: number;
+  total: number;
+  contract_address: string;
+  from_address: string;
+  to_address: string;
+}
+
 export interface Calculation {
   cost: number;
   currency: string;
