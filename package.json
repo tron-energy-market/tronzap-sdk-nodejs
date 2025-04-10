@@ -1,6 +1,6 @@
 {
   "name": "tronzap-sdk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Official Node.js SDK for the TronZap API. TronZap is a platform for renting energy on the TRON blockchain. Buy TRON energy for cheap USDT transfers on TronZap.com",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -44,6 +44,8 @@
     "buy tron energy",
     "trx energy market",
     "tron energy market",
+    "usdt energy",
+    "tether energy",
     "USDT",
     "TRC20",
     "TRC-20",

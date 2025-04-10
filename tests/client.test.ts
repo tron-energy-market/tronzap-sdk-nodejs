@@ -73,6 +73,30 @@ describe('TronZapClient', () => {
     });
   });
 
+  describe('estimateEnergy', () => {
+    it('should estimate energy cost', async () => {
+      const mockResponse = {
+        data: {
+          energy: 64400,
+          duration: 1,
+          price: 3.66,
+          activation_fee: 0,
+          total: 3.66,
+          contract_address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+          from_address: 'TRON_WALLET_ADDRESS',
+          to_address: 'TRON_WALLET_ADDRESS'
+        }
+      };
+
+      mockedAxios.create.mockReturnValue({
+        post: vi.fn().mockResolvedValue(mockResponse)
+      } as any);
+
+      const result = await client.estimateEnergy('test_address', 'test_address', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+      expect(result).toEqual(mockResponse.data);
+    });
+  });
+
   describe('calculate', () => {
     it('should calculate energy cost', async () => {
       const mockResponse = {

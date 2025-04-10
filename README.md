@@ -46,6 +46,14 @@ console.log(services);
 const balance = await client.getBalance();
 console.log(balance);
 
+// Estimate energy amount for USDT transfer
+const estimate = await client.estimateEnergy(
+  'FROM_TRX_ADDRESS',
+  'TO_TRX_ADDRESS',
+  'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' // USDT contract address
+);
+console.log(estimate);
+
 // Calculate energy cost
 const calculation = await client.calculate(
   'TRON_WALLET_ADDRESS',

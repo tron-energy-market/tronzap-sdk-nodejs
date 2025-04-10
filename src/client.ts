@@ -56,6 +56,11 @@ export class TronZapClient {
     return this.request<Balance>('/v1/balance');
   }
 
+  async estimateEnergy(fromAddress: string, toAddress: string, contractAddress?: string): Promise<EnergyEstimate> {
+    const data = { from_address: fromAddress, to_address: toAddress, contract_address: contractAddress };
+    return this.request<EnergyEstimate>('/v1/estimate-energy', data);
+  }
+
   async calculate(address: string, energy: number): Promise<Calculation> {
     const data = { address, energy };
     return this.request<Calculation>('/v1/calculate', data);

@@ -18,10 +18,18 @@ async function main() {
     const balance = await client.getBalance();
     console.log('Account balance:', balance);
 
+    // Estimate energy cost for a TRON address
+    console.log('\nEstimating energy cost...');
+    const fromAddress = 'TRON_WALLET_ADDRESS';
+    const toAddress = 'TRON_WALLET_ADDRESS';
+    const contractAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // e.g. USDT TRC20
+    const energyEstimate = await client.estimateEnergy(fromAddress, toAddress, contractAddress);
+    console.log('Energy estimate:', energyEstimate);
+
     // Calculate energy cost for a TRON address
-    const address = 'TRON_WALLET_ADDRESS'; // Replace with actual TRON address
     console.log('\nCalculating energy cost...');
 
+    const address = 'TRON_WALLET_ADDRESS'; // Replace with actual TRON address
     const energyAmount = 65150; // From 32000
     const duration = 1; // Possible values: 1 or 24 hours
 

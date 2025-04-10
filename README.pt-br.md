@@ -46,6 +46,14 @@ console.log(services);
 const balance = await client.getBalance();
 console.log(balance);
 
+// Estimar quantidade de energia para transferência USDT
+const estimate = await client.estimateEnergy(
+  'ENDERECO_ORIGEM_TRX',
+  'ENDERECO_DESTINO_TRX',
+  'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' // Endereço do contrato USDT
+);
+console.log(estimate);
+
 // Calcular custo de energia
 const calculation = await client.calculate(
   'ENDERECO_CARTEIRA_TRON',

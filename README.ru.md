@@ -46,6 +46,14 @@ console.log(services);
 const balance = await client.getBalance();
 console.log(balance);
 
+// Оценка количества энергии для перевода USDT
+const estimate = await client.estimateEnergy(
+  'АДРЕС_ОТПРАВИТЕЛЯ_TRX',
+  'АДРЕС_ПОЛУЧАТЕЛЯ_TRX',
+  'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' // Адрес контракта USDT
+);
+console.log(estimate);
+
 // Расчет стоимости энергии
 const calculation = await client.calculate(
   'АДРЕС_КОШЕЛЬКА_TRON',
