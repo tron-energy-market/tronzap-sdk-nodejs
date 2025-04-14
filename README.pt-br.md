@@ -72,7 +72,7 @@ const transaction = await client.createEnergyTransaction(
 console.log(transaction);
 
 // Verificar status da transação
-const status = await client.checkTransaction('ID_TRANSACAO');
+const status = await client.checkTransaction(transaction.id);
 console.log(status);
 
 // Obter informações de recarga direta

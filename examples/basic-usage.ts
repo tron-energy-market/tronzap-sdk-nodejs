@@ -31,7 +31,7 @@ async function main() {
 
     const address = 'TRON_WALLET_ADDRESS'; // Replace with actual TRON address
     const energyAmount = 65150; // From 32000
-    const duration = 1; // Possible values: 1 or 24 hours
+    const duration = 1; // Possible values: 1 hour or 24 hours
 
     const calculation = await client.calculate(address, energyAmount);
     console.log('Energy cost calculation:', calculation);
@@ -49,7 +49,7 @@ async function main() {
 
     // Check transaction status
     console.log('\nChecking transaction status...');
-    const status = await client.checkTransaction(transaction.transaction_id);
+    const status = await client.checkTransaction(transaction.id);
     console.log('Transaction status:', status);
 
     // Get direct recharge information

@@ -25,19 +25,37 @@ describe('TronZapClient', () => {
               duration: 1,
               min_energy: 32000,
               max_energy: 131000,
-              price: 0.052300000,
-              price_32k: 1.67,
-              price_65k: 3.4,
-              price_131k: 6.85
+              price: 0.0569,
+              price_32k: 1.82,
+              price_65k: 3.7,
+              price_131k: 7.45
             },
             {
               duration: 1,
               min_energy: 131000,
               max_energy: 4000000,
-              price: 0.052000000,
-              price_32k: 1.66,
-              price_65k: 3.38,
-              price_131k: 6.81
+              price: 0.0534,
+              price_32k: 1.71,
+              price_65k: 3.47,
+              price_131k: 7
+            },
+            {
+              duration: 24,
+              min_energy: 32000,
+              max_energy: 131000,
+              price: 0.13,
+              price_32k: 4.16,
+              price_65k: 8.45,
+              price_131k: 17.03
+            },
+            {
+              duration: 24,
+              min_energy: 131000,
+              max_energy: 5000000,
+              price: 0.1145,
+              price_32k: 3.66,
+              price_65k: 7.44,
+              price_131k: 15
             }
           ],
           activate_address: {
@@ -131,7 +149,7 @@ describe('TronZapClient', () => {
             duration: 1
           },
           status: "pending",
-          amount: 8.25,
+          amount: 1.67,
           created_at: "2024-03-22T12:00:00Z",
           hash: "transaction_hash"
         }
@@ -143,7 +161,7 @@ describe('TronZapClient', () => {
 
       const result = await client.createEnergyTransaction(
         'test_address',
-        131000,
+        32000,
         1,
         'test_tx_id',
         true
@@ -164,7 +182,7 @@ describe('TronZapClient', () => {
             duration: 1
           },
           status: "success",
-          amount: 8.25,
+          amount: 1.67,
           created_at: "2024-03-22T12:00:00Z",
           hash: "transaction_hash"
         }
@@ -185,15 +203,24 @@ describe('TronZapClient', () => {
         data: {
           address: "TRONZAP_PUBLIC_TRX_ADDRESS",
           rates: [
-              {
-                  duration: 1,
-                  min_energy: 32000,
-                  max_energy: 131000,
-                  price: 0.052300000,
-                  price_32k: 1.67,
-                  price_65k: 3.4,
-                  price_131k: 6.85
-              }
+            {
+              duration: 1,
+              min_energy: 32000,
+              max_energy: 131000,
+              price: 0.0569,
+              price_32k: 1.82,
+              price_65k: 3.7,
+              price_131k: 7.45
+            },
+            {
+              duration: 1,
+              min_energy: 131000,
+              max_energy: 4000000,
+              price: 0.0534,
+              price_32k: 1.71,
+              price_65k: 3.47,
+              price_131k: 7
+            }
           ]
         }
       };

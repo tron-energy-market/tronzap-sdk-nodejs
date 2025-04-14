@@ -1,14 +1,5 @@
 import crypto from 'crypto';
-import {
-  TronZapConfig,
-  Service,
-  Balance,
-  EnergyEstimate,
-  Calculation,
-  Transaction,
-  DirectRechargeInfo,
-  TronZapError
-} from './types';
+import { ErrorCode, TronZapConfig, TronZapError } from './types';
 
 export class TronZapClient {
   private readonly baseUrl: string;
@@ -16,90 +7,128 @@ export class TronZapClient {
   private readonly apiSecret: string;
 
   constructor(config: TronZapConfig) {
+    // Default API URL if not provided, ensure apiToken and apiSecret are set
     this.baseUrl = config.baseUrl || 'https://api.tronzap.com';
     this.apiToken = config.apiToken;
     this.apiSecret = config.apiSecret;
+    if (!this.apiToken || !this.apiSecret) {
+      throw new Error('apiToken and apiSecret are required');
+    }
   }
 
-  private async request<T>(endpoint: string, data?: Record<string, any>): Promise<T> {
+  // Generic request handler for all API calls
+  async request(endpoint: string, data: Record<string, any> = {}): Promise<any> {
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${this.apiToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
-    if (!data) {
-      data = {};
-    }
-
+    // Generate signature for request authentication
     const stringifiedData = JSON.stringify(data);
     headers['X-Signature'] = crypto.createHash('sha256').update(stringifiedData + this.apiSecret).digest('hex');
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
       headers,
-      body: stringifiedData
+      body: stringifiedData,
     });
 
-    const responseData = await response.json() as { code: number; result: T };
+    // Parse response and ensure it's valid
+    const responseData = await response.json() as { code: number; error?: string; result: any };
 
     if (!response.ok || responseData.code !== 0) {
-      throw new TronZapError(responseData.code || 500, 'Request failed');
+      throw new TronZapError(responseData.code || 500, responseData.error || 'Request failed');
     }
 
     return responseData.result;
   }
 
-  async getServices(): Promise<Service[]> {
-    return this.request<Service[]>('/v1/services');
+  // Fetch available services, ensure array return
+  async getServices(): Promise<any[]> {
+    return this.request('/v1/services');
   }
 
-  async getBalance(): Promise<Balance> {
-    return this.request<Balance>('/v1/balance');
+  // Fetch account balance
+  async getBalance(): Promise<any> {
+    return this.request('/v1/balance');
   }
 
-  async estimateEnergy(fromAddress: string, toAddress: string, contractAddress?: string): Promise<EnergyEstimate> {
+  // Estimate energy for a transaction
+  async estimateEnergy(fromAddress: string, toAddress: string, contractAddress?: string): Promise<any> {
     const data = { from_address: fromAddress, to_address: toAddress, contract_address: contractAddress };
-    return this.request<EnergyEstimate>('/v1/estimate-energy', data);
+    return this.request('/v1/estimate-energy', data);
   }
 
-  async calculate(address: string, energy: number): Promise<Calculation> {
-    const data = { address, energy };
-    return this.request<Calculation>('/v1/calculate', data);
+  // Calculate energy cost
+  async calculate(address: string, energy: number, duration: number = 1): Promise<any> {
+    const data = { address, energy, duration };
+    return this.request('/v1/calculate', data);
   }
 
+  // Create an energy transaction
   async createEnergyTransaction(
     address: string,
     energyAmount: number,
-    duration: number,
+    duration: number = 1, // 1 or 24 hours
     externalId?: string,
     activateAddress: boolean = false
-  ): Promise<Transaction> {
-    const data = {
-      address,
-      energy_amount: energyAmount,
-      duration,
-      external_id: externalId,
-      activate_address: activateAddress
+  ): Promise<any> {
+    const data: Record<string, any> = {
+      service: 'energy',
+      params: {
+        address,
+        energy_amount: energyAmount,
+        duration,
+      },
     };
-    return this.request<Transaction>('/v1/transactions/energy', data);
+
+    if (activateAddress) {
+      data.params.activate_address = true;
+    }
+
+    if (externalId) {
+      data.external_id = externalId;
+    }
+
+    return this.request('/v1/transaction/new', data);
   }
 
-  async createAddressActivationTransaction(
-    address: string,
-    externalId?: string
-  ): Promise<Transaction> {
-    const data = {
-      address,
-      external_id: externalId
+  // Create an address activation transaction
+  async createAddressActivationTransaction(address: string, externalId?: string): Promise<any> {
+    const data: Record<string, any> = {
+      service: 'activate_address',
+      params: {
+        address,
+      },
     };
-    return this.request<Transaction>('/v1/transactions/activate', data);
+
+    if (externalId) {
+      data.external_id = externalId;
+    }
+
+    return this.request('/v1/transaction/new', data);
   }
 
-  async checkTransaction(transactionId: string): Promise<Transaction> {
-    return this.request<Transaction>(`/v1/transactions/${transactionId}`);
+  // Check transaction status
+  async checkTransaction(id?: string, externalId?: string): Promise<any> {
+    const data: Record<string, any> = {};
+    if (id) {
+      data.id = id;
+    }
+    if (externalId) {
+      data.external_id = externalId;
+    }
+
+    // Ensure data is not empty to avoid API rejection
+    if (Object.keys(data).length === 0) {
+      throw new TronZapError(ErrorCode.INVALID_SERVICE_OR_PARAMS, 'Either id or externalId is required');
+    }
+
+    return this.request('/v1/transaction/check', data);
   }
 
-  async getDirectRechargeInfo(): Promise<DirectRechargeInfo> {
-    return this.request<DirectRechargeInfo>('/v1/direct-recharge');
+  // Fetch direct recharge info
+  async getDirectRechargeInfo(): Promise<any> {
+    return this.request('/v1/direct-recharge-info');
   }
 }

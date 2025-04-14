@@ -4,56 +4,6 @@ export interface TronZapConfig {
   baseUrl?: string;
 }
 
-export interface Service {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  currency: string;
-}
-
-export interface Balance {
-  amount: number;
-  currency: string;
-}
-
-export interface EnergyEstimate {
-  energy: number;
-  duration: number;
-  price: number;
-  activation_fee: number;
-  total: number;
-  contract_address: string;
-  from_address: string;
-  to_address: string;
-}
-
-export interface Calculation {
-  cost: number;
-  currency: string;
-  energy: number;
-}
-
-export interface Transaction {
-  transaction_id: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  address: string;
-  energy_amount: number;
-  duration: number;
-  cost: number;
-  currency: string;
-}
-
-export interface DirectRechargeInfo {
-  address: string;
-  network: string;
-  currency: string;
-  min_amount: number;
-  max_amount: number;
-}
-
 export enum ErrorCode {
   AUTH_ERROR = 1,
   INVALID_SERVICE_OR_PARAMS = 2,
@@ -65,14 +15,12 @@ export enum ErrorCode {
   TRANSACTION_NOT_FOUND = 20,
   ADDRESS_NOT_ACTIVATED = 24,
   ADDRESS_ALREADY_ACTIVATED = 25,
-  INTERNAL_SERVER_ERROR = 500
+  INTERNAL_SERVER_ERROR = 500,
+  UNKNOWN_ERROR = 999, // Added for fallback
 }
 
 export class TronZapError extends Error {
-  constructor(
-    public code: ErrorCode,
-    message: string
-  ) {
+  constructor(public code: number, message: string) {
     super(message);
     this.name = 'TronZapError';
   }

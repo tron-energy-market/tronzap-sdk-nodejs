@@ -66,13 +66,13 @@ const transaction = await client.createEnergyTransaction(
   'АДРЕС_КОШЕЛЬКА_TRON',
   65150, // От 32000
   1, // Возможные значения: 1 или 24 часа
-  'мой-tx-id',  // Опциональный внешний ID
+  'мой-trx-id',  // Опциональный внешний ID
   true        // Опционально: активировать адрес если нужно
 );
 console.log(transaction);
 
 // Проверка статуса транзакции
-const status = await client.checkTransaction('ID_ТРАНЗАКЦИИ');
+const status = await client.checkTransaction(transaction.id);
 console.log(status);
 
 // Получение информации о прямой подзарядке
