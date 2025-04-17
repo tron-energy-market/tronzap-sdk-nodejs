@@ -19,6 +19,8 @@ yarn add tronzap-sdk
 pnpm add tronzap-sdk
 ```
 
+Check out at npm: https://www.npmjs.com/package/tronzap-sdk
+
 ## Platform Support
 
 This SDK is designed to work across multiple JavaScript/TypeScript platforms:
