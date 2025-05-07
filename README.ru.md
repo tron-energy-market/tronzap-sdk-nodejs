@@ -64,7 +64,7 @@ console.log(calculation);
 // Создание транзакции энергии
 const transaction = await client.createEnergyTransaction(
   'АДРЕС_КОШЕЛЬКА_TRON',
-  65150, // От 32000
+  65150, // От 60000
   1, // Возможные значения: 1 или 24 часа
   'мой-trx-id',  // Опциональный внешний ID
   true        // Опционально: активировать адрес если нужно
