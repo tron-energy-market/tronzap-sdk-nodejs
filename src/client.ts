@@ -78,6 +78,7 @@ export class TronZapClient {
       params: {
         address,
         energy_amount: energyAmount,
+        amount: energyAmount,
         duration,
       },
     };
@@ -85,6 +86,24 @@ export class TronZapClient {
     if (activateAddress) {
       data.params.activate_address = true;
     }
+
+    if (externalId) {
+      data.external_id = externalId;
+    }
+
+    return this.request('/v1/transaction/new', data);
+  }
+
+  // Create a bandwidth transaction
+  async createBandwidthTransaction(address: string, amount: number, externalId?: string): Promise<any> {
+    const data: Record<string, any> = {
+      service: 'bandwidth',
+      params: {
+        address,
+        amount,
+        duration: 1,
+      },
+    };
 
     if (externalId) {
       data.external_id = externalId;
@@ -109,6 +128,31 @@ export class TronZapClient {
     return this.request('/v1/transaction/new', data);
   }
 
+  // Create AML check
+  async createAmlCheck(
+    type: string,
+    network: string,
+    address: string,
+    hash?: string,
+    direction?: string
+  ): Promise<any> {
+    const data: Record<string, any> = {
+      type,
+      network,
+      address,
+    };
+
+    if (hash) {
+      data.hash = hash;
+    }
+
+    if (direction) {
+      data.direction = direction;
+    }
+
+    return this.request('/v1/aml-checks/new', data);
+  }
+
   // Check transaction status
   async checkTransaction(id?: string, externalId?: string): Promise<any> {
     const data: Record<string, any> = {};
@@ -125,6 +169,25 @@ export class TronZapClient {
     }
 
     return this.request('/v1/transaction/check', data);
+  }
+
+  // Check AML status
+  async checkAmlStatus(id: string): Promise<any> {
+    return this.request('/v1/aml-checks/check', { id });
+  }
+
+  // Get AML services
+  async getAmlServices(): Promise<any> {
+    return this.request('/v1/aml-checks', {});
+  }
+
+  // Get AML history
+  async getAmlHistory(page: number = 1, perPage: number = 10, status?: string): Promise<any> {
+    const data: Record<string, any> = { page, per_page: perPage };
+    if (status) {
+      data.status = status;
+    }
+    return this.request('/v1/aml-checks/history', data);
   }
 
   // Fetch direct recharge info

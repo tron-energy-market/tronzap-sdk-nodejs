@@ -73,9 +73,29 @@ const transaction = await client.createEnergyTransaction(
 );
 console.log(transaction);
 
+// Buy bandwidth
+const bandwidth = await client.createBandwidthTransaction(
+  'TRON_WALLET_ADDRESS',
+  1000,
+  'bandwidth-1'
+);
+console.log(bandwidth);
+
 // Check transaction status
 const status = await client.checkTransaction('TRANSACTION_ID');
 console.log(status);
+
+// Create AML check
+const amlCheck = await client.createAmlCheck(
+  'address',
+  'TRX',
+  'TXYZ1234567890EXAMPLEADDRESS'
+);
+console.log(amlCheck);
+
+// Check AML status
+const amlStatus = await client.checkAmlStatus(amlCheck.id);
+console.log(amlStatus);
 
 // Get direct recharge information
 const rechargeInfo = await client.getDirectRechargeInfo();
@@ -87,10 +107,13 @@ console.log(rechargeInfo);
 - Full TypeScript support
 - Cross-platform compatibility (Node.js, Bun, Deno)
 - Get available services
+- Get AML services
 - Get account balance
 - Calculate energy cost
 - Create address activation transactions
 - Create energy purchase transactions
+- Create bandwidth purchase transactions
+- Create and track AML checks
 - Check transaction status
 - Get direct recharge information
 
@@ -149,6 +172,12 @@ try {
       case ErrorCode.ADDRESS_ALREADY_ACTIVATED:
         console.error('Address already activated');
         break;
+      case ErrorCode.AML_CHECK_NOT_FOUND:
+        console.error('AML check not found');
+        break;
+      case ErrorCode.SERVICE_NOT_AVAILABLE:
+        console.error('Service not available');
+        break;
       case ErrorCode.INTERNAL_SERVER_ERROR:
         console.error('Internal server error');
         break;
@@ -175,6 +204,8 @@ try {
 | 20   | `TRANSACTION_NOT_FOUND`        | Transaction not found |
 | 24   | `ADDRESS_NOT_ACTIVATED`        | Address not activated |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`    | Address already activated |
+| 30   | `AML_CHECK_NOT_FOUND`          | AML check not found |
+| 35   | `SERVICE_NOT_AVAILABLE`        | Service not available |
 | 500  | `INTERNAL_SERVER_ERROR`        | Internal server error – Contact support |
 
 ## Development

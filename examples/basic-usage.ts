@@ -47,10 +47,44 @@ async function main() {
     );
     console.log('Created transaction:', transaction);
 
+    // Create a bandwidth transaction
+    console.log('\nCreating bandwidth transaction...');
+    const bandwidth = await client.createBandwidthTransaction(
+      address,
+      1000,
+      'bandwidth-' + Date.now()
+    );
+    console.log('Bandwidth transaction:', bandwidth);
+
     // Check transaction status
     console.log('\nChecking transaction status...');
     const status = await client.checkTransaction(transaction.id);
     console.log('Transaction status:', status);
+
+    // AML services
+    console.log('\nFetching AML services...');
+    const amlServices = await client.getAmlServices();
+    console.log('AML services:', amlServices);
+
+    // Create AML check
+    console.log('\nCreating AML check...');
+    const amlCheck = await client.createAmlCheck(
+      'address',
+      'TRX',
+      'TXYZ1234567890EXAMPLEADDRESS'
+    );
+    console.log('AML check:', amlCheck);
+
+    if (amlCheck.id) {
+      console.log('\nChecking AML status...');
+      const amlStatus = await client.checkAmlStatus(amlCheck.id);
+      console.log('AML status:', amlStatus);
+    }
+
+    // AML history
+    console.log('\nFetching AML history...');
+    const amlHistory = await client.getAmlHistory(1, 5);
+    console.log('AML history:', amlHistory);
 
     // Get direct recharge information
     console.log('\nFetching direct recharge information...');

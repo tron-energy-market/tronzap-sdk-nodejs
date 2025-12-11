@@ -71,9 +71,29 @@ const transaction = await client.createEnergyTransaction(
 );
 console.log(transaction);
 
+// Comprar bandwidth
+const bandwidth = await client.createBandwidthTransaction(
+  'ENDERECO_CARTEIRA_TRON',
+  1000,
+  'bandwidth-1'
+);
+console.log(bandwidth);
+
 // Verificar status da transação
 const status = await client.checkTransaction(transaction.id);
 console.log(status);
+
+// Criar checagem AML
+const amlCheck = await client.createAmlCheck(
+  'address',
+  'TRX',
+  'TXYZ1234567890EXAMPLEADDRESS'
+);
+console.log(amlCheck);
+
+// Verificar status AML
+const amlStatus = await client.checkAmlStatus(amlCheck.id);
+console.log(amlStatus);
 
 // Obter informações de recarga direta
 const rechargeInfo = await client.getDirectRechargeInfo();
@@ -85,10 +105,13 @@ console.log(rechargeInfo);
 - Suporte completo para TypeScript
 - Compatibilidade multiplataforma (Node.js, Bun, Deno)
 - Obter serviços disponíveis
+- Obter serviços AML
 - Obter saldo da conta
 - Calcular custo de energia
 - Criar transações de ativação de endereço
 - Criar transações de compra de energia
+- Criar transações de compra de bandwidth
+- Criar e acompanhar checagens AML
 - Verificar status de transações
 - Obter informações de recarga direta
 
@@ -147,6 +170,12 @@ try {
       case ErrorCode.ADDRESS_ALREADY_ACTIVATED:
         console.error('Endereço já ativado');
         break;
+      case ErrorCode.AML_CHECK_NOT_FOUND:
+        console.error('Checagem AML não encontrada');
+        break;
+      case ErrorCode.SERVICE_NOT_AVAILABLE:
+        console.error('Serviço não disponível');
+        break;
       case ErrorCode.INTERNAL_SERVER_ERROR:
         console.error('Erro interno do servidor');
         break;
@@ -173,6 +202,8 @@ try {
 | 20     | `TRANSACTION_NOT_FOUND`       | Transação não encontrada |
 | 24     | `ADDRESS_NOT_ACTIVATED`       | Endereço não ativado |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`   | Endereço já ativado |
+| 30     | `AML_CHECK_NOT_FOUND`         | Checagem AML não encontrada |
+| 35     | `SERVICE_NOT_AVAILABLE`       | Serviço não disponível |
 | 500    | `INTERNAL_SERVER_ERROR`       | Erro interno do servidor - Entre em contato com o suporte |
 
 ## Desenvolvimento

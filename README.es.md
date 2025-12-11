@@ -71,9 +71,29 @@ const transaction = await client.createEnergyTransaction(
 );
 console.log(transaction);
 
+// Comprar ancho de banda
+const bandwidth = await client.createBandwidthTransaction(
+  'DIRECCION_BILLETERA_TRON',
+  1000,
+  'bandwidth-1'
+);
+console.log(bandwidth);
+
 // Verificar estado de la transacción
 const status = await client.checkTransaction(transaction.id);
 console.log(status);
+
+// Crear chequeo AML
+const amlCheck = await client.createAmlCheck(
+  'address',
+  'TRX',
+  'TXYZ1234567890EXAMPLEADDRESS'
+);
+console.log(amlCheck);
+
+// Verificar estado AML
+const amlStatus = await client.checkAmlStatus(amlCheck.id);
+console.log(amlStatus);
 
 // Obtener información de recarga directa
 const rechargeInfo = await client.getDirectRechargeInfo();
@@ -85,10 +105,13 @@ console.log(rechargeInfo);
 - Soporte completo para TypeScript
 - Compatibilidad multiplataforma (Node.js, Bun, Deno)
 - Obtener servicios disponibles
+- Obtener servicios AML
 - Obtener saldo de cuenta
 - Calcular costo de energía
 - Crear transacciones de activación de dirección
 - Crear transacciones de compra de energía
+- Crear transacciones de compra de ancho de banda
+- Crear y seguir chequeos AML
 - Verificar estado de transacciones
 - Obtener información de recarga directa
 
@@ -147,6 +170,12 @@ try {
       case ErrorCode.ADDRESS_ALREADY_ACTIVATED:
         console.error('Dirección ya activada');
         break;
+      case ErrorCode.AML_CHECK_NOT_FOUND:
+        console.error('Chequeo AML no encontrado');
+        break;
+      case ErrorCode.SERVICE_NOT_AVAILABLE:
+        console.error('Servicio no disponible');
+        break;
       case ErrorCode.INTERNAL_SERVER_ERROR:
         console.error('Error interno del servidor');
         break;
@@ -173,6 +202,8 @@ try {
 | 20     | `TRANSACTION_NOT_FOUND`       | Transacción no encontrada |
 | 24     | `ADDRESS_NOT_ACTIVATED`       | Dirección no activada |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`   | Dirección ya activada |
+| 30     | `AML_CHECK_NOT_FOUND`         | Chequeo AML no encontrado |
+| 35     | `SERVICE_NOT_AVAILABLE`       | Servicio no disponible |
 | 500    | `INTERNAL_SERVER_ERROR`       | Error interno del servidor - Contacta a soporte |
 
 ## Desarrollo

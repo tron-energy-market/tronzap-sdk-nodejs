@@ -71,9 +71,29 @@ const transaction = await client.createEnergyTransaction(
 );
 console.log(transaction);
 
+// Покупка bandwidth
+const bandwidth = await client.createBandwidthTransaction(
+  'АДРЕС_КОШЕЛЬКА_TRON',
+  1000,
+  'bandwidth-1'
+);
+console.log(bandwidth);
+
 // Проверка статуса транзакции
 const status = await client.checkTransaction(transaction.id);
 console.log(status);
+
+// Создание AML-проверки
+const amlCheck = await client.createAmlCheck(
+  'address',
+  'TRX',
+  'TXYZ1234567890EXAMPLEADDRESS'
+);
+console.log(amlCheck);
+
+// Проверка статуса AML
+const amlStatus = await client.checkAmlStatus(amlCheck.id);
+console.log(amlStatus);
 
 // Получение информации о прямой подзарядке
 const rechargeInfo = await client.getDirectRechargeInfo();
@@ -85,10 +105,13 @@ console.log(rechargeInfo);
 - Полная поддержка TypeScript
 - Кросс-платформенная совместимость (Node.js, Bun, Deno)
 - Получение доступных сервисов
+- Получение AML-сервисов
 - Получение баланса аккаунта
 - Расчет стоимости энергии
 - Создание транзакций активации адреса
 - Создание транзакций покупки энергии
+- Создание транзакций покупки bandwidth
+- Создание и отслеживание AML-проверок
 - Проверка статуса транзакций
 - Получение информации о прямой подзарядке
 
@@ -147,6 +170,12 @@ try {
       case ErrorCode.ADDRESS_ALREADY_ACTIVATED:
         console.error('Адрес уже активирован');
         break;
+      case ErrorCode.AML_CHECK_NOT_FOUND:
+        console.error('AML-проверка не найдена');
+        break;
+      case ErrorCode.SERVICE_NOT_AVAILABLE:
+        console.error('Сервис недоступен');
+        break;
       case ErrorCode.INTERNAL_SERVER_ERROR:
         console.error('Внутренняя ошибка сервера');
         break;
@@ -173,6 +202,8 @@ try {
 | 20  | `TRANSACTION_NOT_FOUND`       | Транзакция не найдена |
 | 24  | `ADDRESS_NOT_ACTIVATED`       | Адрес не активирован |
 | 25  | `ADDRESS_ALREADY_ACTIVATED`   | Адрес уже активирован |
+| 30  | `AML_CHECK_NOT_FOUND`         | AML-проверка не найдена |
+| 35  | `SERVICE_NOT_AVAILABLE`       | Сервис недоступен |
 | 500 | `INTERNAL_SERVER_ERROR`       | Внутренняя ошибка сервера - Обратитесь в поддержку |
 
 ## Разработка
