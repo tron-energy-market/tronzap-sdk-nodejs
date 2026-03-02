@@ -123,76 +123,85 @@ console.log(rechargeInfo);
 
 ## Manejo de Errores
 
-El SDK lanza `TronZapError` cuando la API devuelve un error. Cada error incluye una propiedad `.code` y `.message` para depuración y manejo de casos específicos.
+El SDK utiliza una jerarquía de clases de error para un manejo preciso:
+
+```
+TronZapError
+├── ApiError             — errores a nivel de API (code != 0 en la respuesta)
+├── NetworkError         — errores de red/conectividad
+│   ├── ConnectionError  — no se pudo conectar al servidor
+│   ├── TimeoutError     — tiempo de espera agotado
+│   └── SslError         — errores SSL/TLS
+└── HttpError            — respuestas HTTP no 2xx
+    ├── RateLimitError   — HTTP 429 Too Many Requests
+    ├── UnauthorizedError — HTTP 401/403
+    └── ServerError      — errores HTTP 5xx
+```
 
 ### Ejemplo
 
 ```typescript
-import { TronZapClient, TronZapError, ErrorCode } from 'tronzap-sdk';
+import {
+  TronZapClient,
+  ApiError,
+  HttpError,
+  NetworkError,
+  RateLimitError,
+  ServerError,
+  SslError,
+  TimeoutError,
+  TronZapError,
+  UnauthorizedError,
+  ErrorCode,
+} from 'tronzap-sdk';
 
 const client = new TronZapClient({
   apiToken: 'tu_api_token',
-  apiSecret: 'tu_api_secret'
+  apiSecret: 'tu_api_secret',
 });
 
 try {
-  const balance = await client.getBalance();
+  const transaction = await client.createEnergyTransaction('TRX_ADDRESS', 65000, 1);
 } catch (error) {
-  if (error instanceof TronZapError) {
-    switch (error.code) {
-      case ErrorCode.AUTH_ERROR:
-        console.error('Error de autenticación');
-        break;
-      case ErrorCode.INVALID_SERVICE_OR_PARAMS:
-        console.error('Servicio o parámetros inválidos');
-        break;
-      case ErrorCode.WALLET_NOT_FOUND:
-        console.error('Billetera interna no encontrada. Contacta a soporte.');
-        break;
-      case ErrorCode.INSUFFICIENT_FUNDS:
-        console.error('Fondos insuficientes');
-        break;
-      case ErrorCode.INVALID_TRON_ADDRESS:
-        console.error('Dirección TRON inválida');
-        break;
-      case ErrorCode.INVALID_ENERGY_AMOUNT:
-        console.error('Cantidad de energía inválida');
-        break;
-      case ErrorCode.INVALID_DURATION:
-        console.error('Duración inválida');
-        break;
-      case ErrorCode.TRANSACTION_NOT_FOUND:
-        console.error('Transacción no encontrada');
-        break;
-      case ErrorCode.ADDRESS_NOT_ACTIVATED:
-        console.error('Dirección no activada');
-        break;
-      case ErrorCode.ADDRESS_ALREADY_ACTIVATED:
-        console.error('Dirección ya activada');
-        break;
-      case ErrorCode.AML_CHECK_NOT_FOUND:
-        console.error('Chequeo AML no encontrado');
-        break;
-      case ErrorCode.SERVICE_NOT_AVAILABLE:
-        console.error('Servicio no disponible');
-        break;
-      case ErrorCode.INTERNAL_SERVER_ERROR:
-        console.error('Error interno del servidor');
-        break;
-      default:
-        console.error(`Error no manejado ${error.code}: ${error.message}`);
+  if (error instanceof ApiError) {
+    // Error a nivel de API (parámetros inválidos, fondos insuficientes, etc.)
+    console.error(`Error API [${error.code}]: ${error.message}`);
+
+    // Clave alias del error, p.ej. "invalid_tron_address" o "invalid_tron_address.from_address"
+    if (error.errorKey) {
+      console.error(`Clave de error: ${error.errorKey}`);
     }
+
+    if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
+      console.error('Revisa el formato de la dirección TRON.');
+    }
+  } else if (error instanceof RateLimitError) {
+    console.error('Demasiadas solicitudes. Reduce la frecuencia.');
+  } else if (error instanceof UnauthorizedError) {
+    console.error('Token API o firma inválidos.');
+  } else if (error instanceof ServerError) {
+    console.error(`Error del servidor TronZap [${error.statusCode}].`);
+  } else if (error instanceof HttpError) {
+    console.error(`Error HTTP [${error.statusCode}]: ${error.message}`);
+  } else if (error instanceof TimeoutError) {
+    console.error('Tiempo de espera agotado.');
+  } else if (error instanceof SslError) {
+    console.error(`Error SSL: ${error.message}`);
+  } else if (error instanceof NetworkError) {
+    console.error(`Error de red: ${error.message}`);
+  } else if (error instanceof TronZapError) {
+    console.error(`Error [${error.code}]: ${error.message}`);
   } else {
     console.error('Error inesperado:', error);
   }
 }
 ```
 
-### Códigos de Error
+### Códigos de error de la API
 
 | Código | Constante                      | Descripción |
 |--------|--------------------------------|-------------|
-| 1      | `AUTH_ERROR`                  | Error de autenticación - Token API o firma inválidos |
+| 1      | `AUTH_ERROR`                  | Error de autenticación — token API o firma inválidos |
 | 2      | `INVALID_SERVICE_OR_PARAMS`   | Servicio o parámetros inválidos |
 | 5      | `WALLET_NOT_FOUND`            | Billetera interna no encontrada. Contacta a soporte. |
 | 6      | `INSUFFICIENT_FUNDS`          | Fondos insuficientes |
@@ -204,7 +213,7 @@ try {
 | 25     | `ADDRESS_ALREADY_ACTIVATED`   | Dirección ya activada |
 | 30     | `AML_CHECK_NOT_FOUND`         | Chequeo AML no encontrado |
 | 35     | `SERVICE_NOT_AVAILABLE`       | Servicio no disponible |
-| 500    | `INTERNAL_SERVER_ERROR`       | Error interno del servidor - Contacta a soporte |
+| 500    | `INTERNAL_SERVER_ERROR`       | Error interno del servidor — contacta a soporte |
 
 ## Desarrollo
 

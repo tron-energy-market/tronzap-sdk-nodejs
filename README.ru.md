@@ -123,78 +123,87 @@ console.log(rechargeInfo);
 
 ## Обработка ошибок
 
-SDK выбрасывает `TronZapError` когда API возвращает ошибку. Каждая ошибка включает свойства `.code` и `.message` для отладки и обработки конкретных случаев.
+SDK использует иерархию классов ошибок для точной обработки:
+
+```
+TronZapError
+├── ApiError             — ошибки API (code != 0 в ответе)
+├── NetworkError         — сетевые ошибки
+│   ├── ConnectionError  — невозможно подключиться к серверу
+│   ├── TimeoutError     — превышено время ожидания
+│   └── SslError         — ошибки SSL/TLS
+└── HttpError            — HTTP-ответы с кодом не 2xx
+    ├── RateLimitError   — HTTP 429 Too Many Requests
+    ├── UnauthorizedError — HTTP 401/403
+    └── ServerError      — HTTP 5xx
+```
 
 ### Пример
 
 ```typescript
-import { TronZapClient, TronZapError, ErrorCode } from 'tronzap-sdk';
+import {
+  TronZapClient,
+  ApiError,
+  HttpError,
+  NetworkError,
+  RateLimitError,
+  ServerError,
+  SslError,
+  TimeoutError,
+  TronZapError,
+  UnauthorizedError,
+  ErrorCode,
+} from 'tronzap-sdk';
 
 const client = new TronZapClient({
   apiToken: 'ваш_api_токен',
-  apiSecret: 'ваш_api_секрет'
+  apiSecret: 'ваш_api_секрет',
 });
 
 try {
-  const balance = await client.getBalance();
+  const transaction = await client.createEnergyTransaction('TRX_ADDRESS', 65000, 1);
 } catch (error) {
-  if (error instanceof TronZapError) {
-    switch (error.code) {
-      case ErrorCode.AUTH_ERROR:
-        console.error('Ошибка аутентификации');
-        break;
-      case ErrorCode.INVALID_SERVICE_OR_PARAMS:
-        console.error('Неверный сервис или параметры');
-        break;
-      case ErrorCode.WALLET_NOT_FOUND:
-        console.error('Внутренний кошелек не найден. Обратитесь в поддержку.');
-        break;
-      case ErrorCode.INSUFFICIENT_FUNDS:
-        console.error('Недостаточно средств');
-        break;
-      case ErrorCode.INVALID_TRON_ADDRESS:
-        console.error('Неверный адрес TRON');
-        break;
-      case ErrorCode.INVALID_ENERGY_AMOUNT:
-        console.error('Неверное количество энергии');
-        break;
-      case ErrorCode.INVALID_DURATION:
-        console.error('Неверная длительность');
-        break;
-      case ErrorCode.TRANSACTION_NOT_FOUND:
-        console.error('Транзакция не найдена');
-        break;
-      case ErrorCode.ADDRESS_NOT_ACTIVATED:
-        console.error('Адрес не активирован');
-        break;
-      case ErrorCode.ADDRESS_ALREADY_ACTIVATED:
-        console.error('Адрес уже активирован');
-        break;
-      case ErrorCode.AML_CHECK_NOT_FOUND:
-        console.error('AML-проверка не найдена');
-        break;
-      case ErrorCode.SERVICE_NOT_AVAILABLE:
-        console.error('Сервис недоступен');
-        break;
-      case ErrorCode.INTERNAL_SERVER_ERROR:
-        console.error('Внутренняя ошибка сервера');
-        break;
-      default:
-        console.error(`Необработанная ошибка ${error.code}: ${error.message}`);
+  if (error instanceof ApiError) {
+    // Ошибка API (неверные параметры, недостаточно средств и т.д.)
+    console.error(`Ошибка API [${error.code}]: ${error.message}`);
+
+    // Ключ-алиас ошибки, например "invalid_tron_address" или "invalid_tron_address.from_address"
+    if (error.errorKey) {
+      console.error(`Ключ ошибки: ${error.errorKey}`);
     }
+
+    if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
+      console.error('Проверьте формат адреса TRON.');
+    }
+  } else if (error instanceof RateLimitError) {
+    console.error('Слишком много запросов. Замедлите частоту обращений.');
+  } else if (error instanceof UnauthorizedError) {
+    console.error('Неверный API-токен или подпись.');
+  } else if (error instanceof ServerError) {
+    console.error(`Ошибка сервера TronZap [${error.statusCode}].`);
+  } else if (error instanceof HttpError) {
+    console.error(`HTTP-ошибка [${error.statusCode}]: ${error.message}`);
+  } else if (error instanceof TimeoutError) {
+    console.error('Превышено время ожидания запроса.');
+  } else if (error instanceof SslError) {
+    console.error(`Ошибка SSL: ${error.message}`);
+  } else if (error instanceof NetworkError) {
+    console.error(`Сетевая ошибка: ${error.message}`);
+  } else if (error instanceof TronZapError) {
+    console.error(`Ошибка [${error.code}]: ${error.message}`);
   } else {
     console.error('Неожиданная ошибка:', error);
   }
 }
 ```
 
-### Коды ошибок
+### Коды ошибок API
 
 | Код | Константа                      | Описание |
-|-----|--------------------------------|-------------|
-| 1   | `AUTH_ERROR`                  | Ошибка аутентификации - Неверный API токен или подпись |
+|-----|--------------------------------|----------|
+| 1   | `AUTH_ERROR`                  | Ошибка аутентификации — неверный API-токен или подпись |
 | 2   | `INVALID_SERVICE_OR_PARAMS`   | Неверный сервис или параметры |
-| 5   | `WALLET_NOT_FOUND`            | Внутренний кошелек не найден. Обратитесь в поддержку. |
+| 5   | `WALLET_NOT_FOUND`            | Внутренний кошелёк не найден. Обратитесь в поддержку. |
 | 6   | `INSUFFICIENT_FUNDS`          | Недостаточно средств |
 | 10  | `INVALID_TRON_ADDRESS`        | Неверный адрес TRON |
 | 11  | `INVALID_ENERGY_AMOUNT`       | Неверное количество энергии |
@@ -204,7 +213,7 @@ try {
 | 25  | `ADDRESS_ALREADY_ACTIVATED`   | Адрес уже активирован |
 | 30  | `AML_CHECK_NOT_FOUND`         | AML-проверка не найдена |
 | 35  | `SERVICE_NOT_AVAILABLE`       | Сервис недоступен |
-| 500 | `INTERNAL_SERVER_ERROR`       | Внутренняя ошибка сервера - Обратитесь в поддержку |
+| 500 | `INTERNAL_SERVER_ERROR`       | Внутренняя ошибка сервера — обратитесь в поддержку |
 
 ## Разработка
 

@@ -15,9 +15,11 @@ describe('TronZapClient', () => {
   });
 
   const mockResponse = (result: any, code = 0) => {
+    const body = JSON.stringify({ code, result });
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ code, result })
+      status: 200,
+      text: async () => body,
     });
   };
 

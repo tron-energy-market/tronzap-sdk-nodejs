@@ -125,72 +125,81 @@ console.log(rechargeInfo);
 
 ## Error Handling
 
-The SDK throws `TronZapError` when the API returns an error. Each error includes a `.code` and a `.message` property for debugging and handling specific cases.
+The SDK uses a hierarchy of error classes for precise error handling:
+
+```
+TronZapError
+├── ApiError             — API-level errors (response code != 0)
+├── NetworkError         — Network/connectivity errors
+│   ├── ConnectionError  — Could not connect to server
+│   ├── TimeoutError     — Request timed out
+│   └── SslError         — SSL/TLS errors
+└── HttpError            — HTTP non-2xx responses
+    ├── RateLimitError   — HTTP 429 Too Many Requests
+    ├── UnauthorizedError — HTTP 401/403
+    └── ServerError      — HTTP 5xx errors
+```
 
 ### Example
 
 ```typescript
-import { TronZapClient, TronZapError, ErrorCode } from 'tronzap-sdk';
+import {
+  TronZapClient,
+  ApiError,
+  HttpError,
+  NetworkError,
+  RateLimitError,
+  ServerError,
+  SslError,
+  TimeoutError,
+  TronZapError,
+  UnauthorizedError,
+  ErrorCode,
+} from 'tronzap-sdk';
 
 const client = new TronZapClient({
   apiToken: 'your_api_token',
-  apiSecret: 'your_api_secret'
+  apiSecret: 'your_api_secret',
 });
 
 try {
-  const balance = await client.getBalance();
+  const transaction = await client.createEnergyTransaction('TRX_ADDRESS', 65000, 1);
 } catch (error) {
-  if (error instanceof TronZapError) {
-    switch (error.code) {
-      case ErrorCode.AUTH_ERROR:
-        console.error('Authentication error');
-        break;
-      case ErrorCode.INVALID_SERVICE_OR_PARAMS:
-        console.error('Invalid service or parameters');
-        break;
-      case ErrorCode.WALLET_NOT_FOUND:
-        console.error('Internal wallet not found. Contact support.');
-        break;
-      case ErrorCode.INSUFFICIENT_FUNDS:
-        console.error('Insufficient funds');
-        break;
-      case ErrorCode.INVALID_TRON_ADDRESS:
-        console.error('Invalid TRON address');
-        break;
-      case ErrorCode.INVALID_ENERGY_AMOUNT:
-        console.error('Invalid energy amount');
-        break;
-      case ErrorCode.INVALID_DURATION:
-        console.error('Invalid duration');
-        break;
-      case ErrorCode.TRANSACTION_NOT_FOUND:
-        console.error('Transaction not found');
-        break;
-      case ErrorCode.ADDRESS_NOT_ACTIVATED:
-        console.error('Address not activated');
-        break;
-      case ErrorCode.ADDRESS_ALREADY_ACTIVATED:
-        console.error('Address already activated');
-        break;
-      case ErrorCode.AML_CHECK_NOT_FOUND:
-        console.error('AML check not found');
-        break;
-      case ErrorCode.SERVICE_NOT_AVAILABLE:
-        console.error('Service not available');
-        break;
-      case ErrorCode.INTERNAL_SERVER_ERROR:
-        console.error('Internal server error');
-        break;
-      default:
-        console.error(`Unhandled error ${error.code}: ${error.message}`);
+  if (error instanceof ApiError) {
+    // API-level error (invalid params, insufficient funds, etc.)
+    console.error(`API error [${error.code}]: ${error.message}`);
+
+    // Error key alias, e.g. "invalid_tron_address" or "invalid_tron_address.from_address"
+    if (error.errorKey) {
+      console.error(`Error key: ${error.errorKey}`);
     }
+
+    if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
+      console.error('Check the TRON address format.');
+    }
+  } else if (error instanceof RateLimitError) {
+    console.error('Too many requests, please slow down.');
+  } else if (error instanceof UnauthorizedError) {
+    console.error('Invalid API token or signature.');
+  } else if (error instanceof ServerError) {
+    console.error(`TronZap server error [${error.statusCode}].`);
+  } else if (error instanceof HttpError) {
+    console.error(`HTTP error [${error.statusCode}]: ${error.message}`);
+  } else if (error instanceof TimeoutError) {
+    console.error('Request timed out.');
+  } else if (error instanceof SslError) {
+    console.error(`SSL error: ${error.message}`);
+  } else if (error instanceof NetworkError) {
+    console.error(`Network error: ${error.message}`);
+  } else if (error instanceof TronZapError) {
+    console.error(`Error [${error.code}]: ${error.message}`);
   } else {
     console.error('Unexpected error:', error);
   }
 }
 ```
 
-### Error Codes
+### API Error Codes
 
 | Code | Constant                        | Description |
 |------|----------------------------------|-------------|

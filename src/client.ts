@@ -1,5 +1,47 @@
 import crypto from 'crypto';
-import { ErrorCode, TronZapConfig, TronZapError } from './types';
+import {
+  ApiError,
+  ConnectionError,
+  ErrorCode,
+  HttpError,
+  NetworkError,
+  RateLimitError,
+  ServerError,
+  SslError,
+  TimeoutError,
+  TronZapConfig,
+  UnauthorizedError,
+} from './types';
+
+function buildNetworkError(error: Error): NetworkError {
+  const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+  const causeCode = cause?.code ?? '';
+  const causeMessage = (cause?.message ?? error.message).toLowerCase();
+
+  if (['ECONNREFUSED', 'ENOTFOUND', 'ECONNRESET'].includes(causeCode)) {
+    return new ConnectionError(error.message, error);
+  }
+  if (['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(causeCode) || causeMessage.includes('timeout')) {
+    return new TimeoutError(error.message, error);
+  }
+  if (causeMessage.includes('certificate') || causeMessage.includes('ssl') || causeMessage.includes('self signed')) {
+    return new SslError(error.message, error);
+  }
+  return new NetworkError(error.message, error);
+}
+
+function buildHttpError(status: number, body: string): HttpError {
+  if (status === 429) {
+    return new RateLimitError('Too many requests', body);
+  }
+  if (status === 401 || status === 403) {
+    return new UnauthorizedError(status, 'Unauthorized', body);
+  }
+  if (status >= 500) {
+    return new ServerError(status, 'Server error', body);
+  }
+  return new HttpError(status, `HTTP error ${status}`, body);
+}
 
 export class TronZapClient {
   private readonly baseUrl: string;
@@ -27,17 +69,33 @@ export class TronZapClient {
     const stringifiedData = JSON.stringify(data);
     headers['X-Signature'] = crypto.createHash('sha256').update(stringifiedData + this.apiSecret).digest('hex');
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: stringifiedData,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: stringifiedData,
+      });
+    } catch (error) {
+      throw buildNetworkError(error as Error);
+    }
 
-    // Parse response and ensure it's valid
-    const responseData = await response.json() as { code: number; error?: string; result: any };
+    // Read body once — avoid double-consumption
+    const body = await response.text();
 
-    if (!response.ok || responseData.code !== 0) {
-      throw new TronZapError(responseData.code || 500, responseData.error || 'Request failed');
+    if (!response.ok) {
+      throw buildHttpError(response.status, body);
+    }
+
+    let responseData: { code: number; error?: string; key?: string; result: any };
+    try {
+      responseData = JSON.parse(body) as typeof responseData;
+    } catch {
+      throw new ServerError(response.status, 'Invalid JSON response', body);
+    }
+
+    if (responseData.code !== 0) {
+      throw new ApiError(responseData.code ?? 1, responseData.error ?? 'Unknown API error', responseData.key ?? null);
     }
 
     return responseData.result;
@@ -165,7 +223,7 @@ export class TronZapClient {
 
     // Ensure data is not empty to avoid API rejection
     if (Object.keys(data).length === 0) {
-      throw new TronZapError(ErrorCode.INVALID_SERVICE_OR_PARAMS, 'Either id or externalId is required');
+      throw new ApiError(ErrorCode.INVALID_SERVICE_OR_PARAMS, 'Either id or externalId is required');
     }
 
     return this.request('/v1/transaction/check', data);
