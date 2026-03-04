@@ -30,6 +30,14 @@ function buildNetworkError(error: Error): NetworkError {
   return new NetworkError(error.message, error);
 }
 
+function tryParseJson(body: string): Record<string, any> | null {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
+}
+
 function buildHttpError(status: number, body: string): HttpError {
   if (status === 429) {
     return new RateLimitError('Too many requests', body);
@@ -83,19 +91,27 @@ export class TronZapClient {
     // Read body once — avoid double-consumption
     const body = await response.text();
 
+    // 2. Try to parse JSON
+    const responseData = tryParseJson(body);
+
+    // 3. API-level errors (valid JSON + code !== 0, regardless of HTTP status)
+    if (responseData !== null && responseData.code !== 0) {
+      throw new ApiError(responseData.code ?? 1, responseData.error ?? 'Unknown API error', responseData.key ?? null);
+    }
+
+    // 4. HTTP-level errors (non-2xx: invalid JSON or valid JSON with code=0)
     if (!response.ok) {
       throw buildHttpError(response.status, body);
     }
 
-    let responseData: { code: number; error?: string; key?: string; result: any };
-    try {
-      responseData = JSON.parse(body) as typeof responseData;
-    } catch {
+    // 5. HTTP 2xx but invalid JSON
+    if (responseData === null) {
       throw new ServerError(response.status, 'Invalid JSON response', body);
     }
 
-    if (responseData.code !== 0) {
-      throw new ApiError(responseData.code ?? 1, responseData.error ?? 'Unknown API error', responseData.key ?? null);
+    // 6. Missing result key
+    if (!('result' in responseData)) {
+      throw new ServerError(response.status, 'Missing result in response', body);
     }
 
     return responseData.result;
