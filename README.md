@@ -48,6 +48,10 @@ console.log(services);
 const balance = await client.getBalance();
 console.log(balance);
 
+// Get address info (resources and balances)
+const addressInfo = await client.getAddressInfo('TRX_ADDRESS');
+console.log(addressInfo);
+
 // Estimate energy amount for USDT transfer
 const estimate = await client.estimateEnergy(
   'FROM_TRX_ADDRESS',
@@ -109,6 +113,7 @@ console.log(rechargeInfo);
 - Get available services
 - Get AML services
 - Get account balance
+- Get address info (resources and balances)
 - Calculate energy cost
 - Create address activation transactions
 - Create energy purchase transactions

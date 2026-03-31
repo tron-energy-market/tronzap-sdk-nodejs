@@ -46,6 +46,10 @@ console.log(services);
 const balance = await client.getBalance();
 console.log(balance);
 
+// Obter informações do endereço (recursos e saldos)
+const addressInfo = await client.getAddressInfo('TRX_ADDRESS');
+console.log(addressInfo);
+
 // Estimar quantidade de energia para transferência USDT
 const estimate = await client.estimateEnergy(
   'ENDERECO_ORIGEM_TRX',
@@ -107,6 +111,7 @@ console.log(rechargeInfo);
 - Obter serviços disponíveis
 - Obter serviços AML
 - Obter saldo da conta
+- Obter informações do endereço (recursos e saldos)
 - Calcular custo de energia
 - Criar transações de ativação de endereço
 - Criar transações de compra de energia

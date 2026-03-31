@@ -127,6 +127,11 @@ export class TronZapClient {
     return this.request('/v1/balance');
   }
 
+  // Get address info (resources and balances)
+  async getAddressInfo(address: string): Promise<any> {
+    return this.request('/v1/address-info', { address });
+  }
+
   // Estimate energy for a transaction
   async estimateEnergy(fromAddress: string, toAddress: string, contractAddress?: string): Promise<any> {
     const data = { from_address: fromAddress, to_address: toAddress, contract_address: contractAddress };

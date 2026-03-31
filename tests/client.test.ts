@@ -33,6 +33,16 @@ describe('TronZapClient', () => {
     );
   });
 
+  it('fetches address info', async () => {
+    mockResponse({ resources: { energy: 131000, bandwidth: 600 }, balances: { TRX: 10, USDT: 2 } });
+    const result = await client.getAddressInfo('TKuV4gsNRCqEZwS8zRuHJHnCgvNBce7MPe');
+    expect(result).toEqual({ resources: { energy: 131000, bandwidth: 600 }, balances: { TRX: 10, USDT: 2 } });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.tronzap.com/v1/address-info',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('creates energy transaction with amount alias', async () => {
     mockResponse({ id: 'tx' });
     await client.createEnergyTransaction('TRX', 32000, 1, 'ext', true);

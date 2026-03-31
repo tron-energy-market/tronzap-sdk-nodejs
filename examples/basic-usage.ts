@@ -18,6 +18,11 @@ async function main() {
     const balance = await client.getBalance();
     console.log('Account balance:', balance);
 
+    // Get address info (resources and balances)
+    console.log('\nFetching address info...');
+    const addressInfo = await client.getAddressInfo('TRON_WALLET_ADDRESS');
+    console.log('Address info:', addressInfo);
+
     // Estimate energy cost for a TRON address
     console.log('\nEstimating energy cost...');
     const fromAddress = 'TRON_WALLET_ADDRESS';

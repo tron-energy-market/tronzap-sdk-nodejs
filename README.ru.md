@@ -46,6 +46,10 @@ console.log(services);
 const balance = await client.getBalance();
 console.log(balance);
 
+// Получение информации об адресе (ресурсы и балансы)
+const addressInfo = await client.getAddressInfo('TRX_ADDRESS');
+console.log(addressInfo);
+
 // Оценка количества энергии для перевода USDT
 const estimate = await client.estimateEnergy(
   'АДРЕС_ОТПРАВИТЕЛЯ_TRX',
@@ -107,6 +111,7 @@ console.log(rechargeInfo);
 - Получение доступных сервисов
 - Получение AML-сервисов
 - Получение баланса аккаунта
+- Получение информации об адресе (ресурсы и балансы)
 - Расчет стоимости энергии
 - Создание транзакций активации адреса
 - Создание транзакций покупки энергии
