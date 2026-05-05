@@ -83,6 +83,17 @@ const bandwidth = await client.createBandwidthTransaction(
 );
 console.log(bandwidth);
 
+// Comprar pacote de recursos (energia + bandwidth em uma só transação)
+const bundle = await client.createResourceBundleTransaction(
+  'ENDERECO_CARTEIRA_TRON',
+  65000, // quantidade de energia
+  350,   // quantidade de bandwidth
+  1,     // duração (horas)
+  'bundle-1', // ID externo opcional
+  true        // opcional: ativar endereço
+);
+console.log(bundle);
+
 // Verificar status da transação
 const status = await client.checkTransaction(transaction.id);
 console.log(status);
@@ -116,6 +127,7 @@ console.log(rechargeInfo);
 - Criar transações de ativação de endereço
 - Criar transações de compra de energia
 - Criar transações de compra de bandwidth
+- Criar transações de pacote de recursos (energia + bandwidth)
 - Criar e acompanhar checagens AML
 - Verificar status de transações
 - Obter informações de recarga direta
@@ -213,11 +225,13 @@ try {
 | 10     | `INVALID_TRON_ADDRESS`        | Endereço TRON inválido |
 | 11     | `INVALID_ENERGY_AMOUNT`       | Quantidade de energia inválida |
 | 12     | `INVALID_DURATION`            | Duração inválida |
-| 20     | `TRANSACTION_NOT_FOUND`       | Transação não encontrada |
+| 20     | `TRANSACTION_NOT_FOUND`       | Transação/assinatura não encontrada |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`    | Não é possível parar a assinatura |
 | 24     | `ADDRESS_NOT_ACTIVATED`       | Endereço não ativado |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`   | Endereço já ativado |
 | 30     | `AML_CHECK_NOT_FOUND`         | Checagem AML não encontrada |
 | 35     | `SERVICE_NOT_AVAILABLE`       | Serviço não disponível |
+| 50     | `INVALID_BANDWIDTH_AMOUNT`    | Quantidade de bandwidth inválida |
 | 500    | `INTERNAL_SERVER_ERROR`       | Erro interno do servidor — contate o suporte |
 
 ## Desenvolvimento

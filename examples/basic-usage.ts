@@ -61,6 +61,18 @@ async function main() {
     );
     console.log('Bandwidth transaction:', bandwidth);
 
+    // Create a resource bundle transaction (energy + bandwidth in one purchase)
+    console.log('\nCreating resource bundle transaction...');
+    const bundle = await client.createResourceBundleTransaction(
+      address,
+      energyAmount,        // energy amount
+      350,                 // bandwidth amount
+      duration,            // duration (hours), currently only 1
+      'bundle-' + Date.now(),
+      true                 // activate address
+    );
+    console.log('Resource bundle transaction:', bundle);
+
     // Check transaction status
     console.log('\nChecking transaction status...');
     const status = await client.checkTransaction(transaction.id);

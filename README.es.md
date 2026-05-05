@@ -83,6 +83,17 @@ const bandwidth = await client.createBandwidthTransaction(
 );
 console.log(bandwidth);
 
+// Comprar un paquete de recursos (energía + ancho de banda en una sola transacción)
+const bundle = await client.createResourceBundleTransaction(
+  'DIRECCION_BILLETERA_TRON',
+  65000, // cantidad de energía
+  350,   // cantidad de ancho de banda
+  1,     // duración (horas)
+  'bundle-1', // ID externo opcional
+  true        // opcional: activar dirección
+);
+console.log(bundle);
+
 // Verificar estado de la transacción
 const status = await client.checkTransaction(transaction.id);
 console.log(status);
@@ -116,6 +127,7 @@ console.log(rechargeInfo);
 - Crear transacciones de activación de dirección
 - Crear transacciones de compra de energía
 - Crear transacciones de compra de ancho de banda
+- Crear transacciones de paquete de recursos (energía + ancho de banda)
 - Crear y seguir chequeos AML
 - Verificar estado de transacciones
 - Obtener información de recarga directa
@@ -213,11 +225,13 @@ try {
 | 10     | `INVALID_TRON_ADDRESS`        | Dirección TRON inválida |
 | 11     | `INVALID_ENERGY_AMOUNT`       | Cantidad de energía inválida |
 | 12     | `INVALID_DURATION`            | Duración inválida |
-| 20     | `TRANSACTION_NOT_FOUND`       | Transacción no encontrada |
+| 20     | `TRANSACTION_NOT_FOUND`       | Transacción/suscripción no encontrada |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`    | No se puede detener la suscripción |
 | 24     | `ADDRESS_NOT_ACTIVATED`       | Dirección no activada |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`   | Dirección ya activada |
 | 30     | `AML_CHECK_NOT_FOUND`         | Chequeo AML no encontrado |
 | 35     | `SERVICE_NOT_AVAILABLE`       | Servicio no disponible |
+| 50     | `INVALID_BANDWIDTH_AMOUNT`    | Cantidad de ancho de banda inválida |
 | 500    | `INTERNAL_SERVER_ERROR`       | Error interno del servidor — contacta a soporte |
 
 ## Desarrollo

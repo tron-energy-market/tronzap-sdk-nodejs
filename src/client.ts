@@ -148,7 +148,7 @@ export class TronZapClient {
   async createEnergyTransaction(
     address: string,
     energyAmount: number,
-    duration: number = 1, // 1 or 24 hours
+    duration: number = 1, // currently only 1 hour is supported
     externalId?: string,
     activateAddress: boolean = false
   ): Promise<any> {
@@ -156,8 +156,9 @@ export class TronZapClient {
       service: 'energy',
       params: {
         address,
-        energy_amount: energyAmount,
-        amount: energyAmount,
+        amounts: {
+          energy: energyAmount,
+        },
         duration,
       },
     };
@@ -179,10 +180,44 @@ export class TronZapClient {
       service: 'bandwidth',
       params: {
         address,
-        amount,
+        amounts: {
+          bandwidth: amount,
+        },
         duration: 1,
       },
     };
+
+    if (externalId) {
+      data.external_id = externalId;
+    }
+
+    return this.request('/v1/transaction/new', data);
+  }
+
+  // Create a resource bundle transaction (energy + bandwidth in one purchase)
+  async createResourceBundleTransaction(
+    address: string,
+    energyAmount: number,
+    bandwidthAmount: number,
+    duration: number = 1, // currently only 1 hour is supported
+    externalId?: string,
+    activateAddress: boolean = false
+  ): Promise<any> {
+    const data: Record<string, any> = {
+      service: 'resource_bundle',
+      params: {
+        address,
+        amounts: {
+          energy: energyAmount,
+          bandwidth: bandwidthAmount,
+        },
+        duration,
+      },
+    };
+
+    if (activateAddress) {
+      data.params.activate_address = true;
+    }
 
     if (externalId) {
       data.external_id = externalId;

@@ -85,6 +85,17 @@ const bandwidth = await client.createBandwidthTransaction(
 );
 console.log(bandwidth);
 
+// Buy a resource bundle (energy + bandwidth in one transaction)
+const bundle = await client.createResourceBundleTransaction(
+  'TRON_WALLET_ADDRESS',
+  65000, // energy amount
+  350,   // bandwidth amount
+  1,     // duration (hours)
+  'bundle-1', // optional external ID
+  true        // optional: activate address
+);
+console.log(bundle);
+
 // Check transaction status
 const status = await client.checkTransaction('TRANSACTION_ID');
 console.log(status);
@@ -118,6 +129,7 @@ console.log(rechargeInfo);
 - Create address activation transactions
 - Create energy purchase transactions
 - Create bandwidth purchase transactions
+- Create resource bundle transactions (energy + bandwidth in one purchase)
 - Create and track AML checks
 - Check transaction status
 - Get direct recharge information
@@ -215,11 +227,13 @@ try {
 | 10   | `INVALID_TRON_ADDRESS`         | Invalid TRON address |
 | 11   | `INVALID_ENERGY_AMOUNT`        | Invalid energy amount |
 | 12   | `INVALID_DURATION`             | Invalid duration |
-| 20   | `TRANSACTION_NOT_FOUND`        | Transaction not found |
+| 20   | `TRANSACTION_NOT_FOUND`        | Transaction/subscription not found |
+| 21   | `CANNOT_STOP_SUBSCRIPTION`     | Cannot stop subscription |
 | 24   | `ADDRESS_NOT_ACTIVATED`        | Address not activated |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`    | Address already activated |
 | 30   | `AML_CHECK_NOT_FOUND`          | AML check not found |
 | 35   | `SERVICE_NOT_AVAILABLE`        | Service not available |
+| 50   | `INVALID_BANDWIDTH_AMOUNT`     | Invalid bandwidth amount |
 | 500  | `INTERNAL_SERVER_ERROR`        | Internal server error – Contact support |
 
 ## Development

@@ -43,7 +43,7 @@ describe('TronZapClient', () => {
     );
   });
 
-  it('creates energy transaction with amount alias', async () => {
+  it('creates energy transaction with amounts payload', async () => {
     mockResponse({ id: 'tx' });
     await client.createEnergyTransaction('TRX', 32000, 1, 'ext', true);
 
@@ -53,8 +53,7 @@ describe('TronZapClient', () => {
       service: 'energy',
       params: {
         address: 'TRX',
-        energy_amount: 32000,
-        amount: 32000,
+        amounts: { energy: 32000 },
         duration: 1,
         activate_address: true
       },
@@ -72,10 +71,28 @@ describe('TronZapClient', () => {
       service: 'bandwidth',
       params: {
         address: 'TRX',
-        amount: 1000,
+        amounts: { bandwidth: 1000 },
         duration: 1
       },
       external_id: 'bw-1'
+    });
+  });
+
+  it('creates resource bundle transaction', async () => {
+    mockResponse({ id: 'bundle' });
+    await client.createResourceBundleTransaction('TRX', 65000, 350, 1, 'bundle-1', true);
+
+    const [, request] = fetchMock.mock.calls[0];
+    const body = JSON.parse((request as RequestInit).body as string);
+    expect(body).toEqual({
+      service: 'resource_bundle',
+      params: {
+        address: 'TRX',
+        amounts: { energy: 65000, bandwidth: 350 },
+        duration: 1,
+        activate_address: true
+      },
+      external_id: 'bundle-1'
     });
   });
 

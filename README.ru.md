@@ -83,6 +83,17 @@ const bandwidth = await client.createBandwidthTransaction(
 );
 console.log(bandwidth);
 
+// Покупка пакета ресурсов (energy + bandwidth одной транзакцией)
+const bundle = await client.createResourceBundleTransaction(
+  'АДРЕС_КОШЕЛЬКА_TRON',
+  65000, // количество energy
+  350,   // количество bandwidth
+  1,     // длительность (часы)
+  'bundle-1', // внешний ID (опционально)
+  true        // опционально: активация адреса
+);
+console.log(bundle);
+
 // Проверка статуса транзакции
 const status = await client.checkTransaction(transaction.id);
 console.log(status);
@@ -116,6 +127,7 @@ console.log(rechargeInfo);
 - Создание транзакций активации адреса
 - Создание транзакций покупки энергии
 - Создание транзакций покупки bandwidth
+- Создание транзакций пакета ресурсов (energy + bandwidth)
 - Создание и отслеживание AML-проверок
 - Проверка статуса транзакций
 - Получение информации о прямой подзарядке
@@ -213,11 +225,13 @@ try {
 | 10  | `INVALID_TRON_ADDRESS`        | Неверный адрес TRON |
 | 11  | `INVALID_ENERGY_AMOUNT`       | Неверное количество энергии |
 | 12  | `INVALID_DURATION`            | Неверная длительность |
-| 20  | `TRANSACTION_NOT_FOUND`       | Транзакция не найдена |
+| 20  | `TRANSACTION_NOT_FOUND`       | Транзакция/подписка не найдена |
+| 21  | `CANNOT_STOP_SUBSCRIPTION`    | Невозможно остановить подписку |
 | 24  | `ADDRESS_NOT_ACTIVATED`       | Адрес не активирован |
 | 25  | `ADDRESS_ALREADY_ACTIVATED`   | Адрес уже активирован |
 | 30  | `AML_CHECK_NOT_FOUND`         | AML-проверка не найдена |
 | 35  | `SERVICE_NOT_AVAILABLE`       | Сервис недоступен |
+| 50  | `INVALID_BANDWIDTH_AMOUNT`    | Неверное количество bandwidth |
 | 500 | `INTERNAL_SERVER_ERROR`       | Внутренняя ошибка сервера — обратитесь в поддержку |
 
 ## Разработка
