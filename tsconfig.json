@@ -19,5 +19,5 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "tests", "examples", "*.config.ts"]
+  "include": ["src", "tests", "examples", "*.config.ts", "*.config.mts"]
 }

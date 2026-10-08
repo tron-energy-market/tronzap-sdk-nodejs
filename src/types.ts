@@ -2,7 +2,22 @@ export interface TronZapConfig {
   apiToken: string;
   apiSecret: string;
   baseUrl?: string;
+  /** Milliseconds per request, including reading the response. 30000 by default. */
+  timeout?: number;
+  /** Replaces the global `fetch`, e.g. to go through a proxy or trust another certificate authority. */
+  fetch?: (input: string, init: RequestInit) => Promise<Response>;
 }
+
+export interface RequestOptions {
+  /** Aborting it rejects the call with the signal's reason. */
+  signal?: AbortSignal;
+  /** Milliseconds, overrides the client's timeout for this call. */
+  timeout?: number;
+}
+
+// Results are not typed yet: narrowing `any` would break callers that read fields TypeScript does not know about.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ApiResult = any;
 
 export enum ErrorCode {
   AUTH_ERROR = 1,
@@ -12,6 +27,7 @@ export enum ErrorCode {
   INVALID_TRON_ADDRESS = 10,
   INVALID_ENERGY_AMOUNT = 11,
   INVALID_DURATION = 12,
+  /** The API reports it with the key `subscription_not_found`. */
   TRANSACTION_NOT_FOUND = 20,
   CANNOT_STOP_SUBSCRIPTION = 21,
   ADDRESS_NOT_ACTIVATED = 24,
@@ -23,26 +39,48 @@ export enum ErrorCode {
   UNKNOWN_ERROR = 999,
 }
 
-// Base error — backward-compatible
 export class TronZapError extends Error {
-  constructor(public code: number, message: string) {
+  constructor(
+    public code: number,
+    message: string
+  ) {
     super(message);
     this.name = 'TronZapError';
   }
 }
 
-// API-level errors (response body code != 0)
+/** The API answered with a non-zero `code`, whatever the HTTP status. */
 export class ApiError extends TronZapError {
   public readonly errorKey: string | null;
+  public readonly requestId: string | null;
+  public readonly statusCode: number;
 
-  constructor(code: number, message: string, errorKey: string | null = null) {
+  constructor(
+    code: number,
+    message: string,
+    errorKey: string | null = null,
+    requestId: string | null = null,
+    statusCode = 0
+  ) {
     super(code, message);
     this.name = 'ApiError';
     this.errorKey = errorKey;
+    this.requestId = requestId;
+    this.statusCode = statusCode;
   }
 }
 
-// Network-level errors (fetch threw before a response was received)
+/** Thrown before sending when an argument or the configuration is invalid. */
+export class InvalidRequestError extends TronZapError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(0, message);
+    this.name = 'InvalidRequestError';
+    if (options?.cause !== undefined) {
+      this.cause = options.cause;
+    }
+  }
+}
+
 export class NetworkError extends TronZapError {
   public readonly originalError?: Error;
 
@@ -74,7 +112,6 @@ export class SslError extends NetworkError {
   }
 }
 
-// HTTP-level errors (non-2xx response)
 export class HttpError extends TronZapError {
   public readonly responseBody: string;
 
