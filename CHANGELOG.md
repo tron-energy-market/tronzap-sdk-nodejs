@@ -7,6 +7,18 @@ All notable changes to this project are documented in this file. The format is b
 Versions 1.1.0 to 1.4.0 were tagged on GitHub but never published to npm, where the previous version is 1.0.4.
 Upgrading from 1.0.4 to 1.5.0 brings their changes as well.
 
+## [Unreleased]
+
+### Changed
+
+- `examples/basic-usage.ts` reads the API's `amount`, `min_amount` and `max_amount` fields instead of the deprecated
+  `energy`, `min_energy` and `max_energy`.
+
+### Fixed
+
+- `examples/basic-usage.ts` labels the energy `price` of `getServices()` as per 1000 units, not per unit. Energy and
+  bandwidth are both priced per 1000 units: the cost is `price × amount / 1000`.
+
 ## [1.5.0] - 2026-10-08
 
 ### Added

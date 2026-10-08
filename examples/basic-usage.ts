@@ -103,8 +103,8 @@ async function main(): Promise<number> {
     const services: unknown = await client.getServices();
     for (const rate of rows(services, 'energy')) {
       console.log(
-        `  energy ${field(rate, 'duration')}h ${field(rate, 'min_energy')}..${field(rate, 'max_energy')} ` +
-          `at ${field(rate, 'price')} per unit (65k = ${field(rate, 'price_65k')})`
+        `  energy ${field(rate, 'duration')}h ${field(rate, 'min_amount')}..${field(rate, 'max_amount')} ` +
+          `at ${field(rate, 'price')} per 1000 units (65k = ${field(rate, 'price_65k')})`
       );
     }
     for (const rate of rows(services, 'bandwidth')) {
@@ -161,7 +161,7 @@ async function main(): Promise<number> {
   await optionalStep('calculate', address, async value => {
     const calculation: unknown = await client.calculate(value, ENERGY);
     console.log(
-      `  ${field(calculation, 'energy')} energy for ${field(calculation, 'duration')}h ` +
+      `  ${field(calculation, 'amount')} energy for ${field(calculation, 'duration')}h ` +
         `costs ${field(calculation, 'total')}`
     );
   });
@@ -172,7 +172,7 @@ async function main(): Promise<number> {
     toAddress === undefined ? undefined : env('TRONZAP_FROM_ADDRESS'),
     async value => {
       const estimate: unknown = await client.estimateEnergy(value, toAddress ?? '');
-      console.log(`  ${field(estimate, 'energy')} energy, total ${field(estimate, 'total')}`);
+      console.log(`  ${field(estimate, 'amount')} energy, total ${field(estimate, 'total')}`);
     }
   );
 
