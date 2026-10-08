@@ -1,6 +1,6 @@
 # TronZap SDK for Node.js
 
-**[English](README.md)** | [Español](README.es.md) | [Português](README.pt-br.md) | [Русский](README.ru.md)
+**[English](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.md)** | [Español](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.es.md) | [Português](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.pt-br.md) | [Русский](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.ru.md)
 
 Official Node.js SDK for the TronZap API.
 This SDK allows you to easily integrate with TronZap services for TRON energy rental.
@@ -25,9 +25,11 @@ Check out at npm: https://www.npmjs.com/package/tronzap-sdk
 
 This SDK is designed to work across multiple JavaScript/TypeScript platforms:
 
-- **Node.js**: v16.0.0 or higher
-- **Bun**: v1.0.0 or higher
-- **Deno**: v1.0.0 or higher
+- **Node.js**: 20 or higher
+- **Bun**: 1.x
+- **Deno**: 2.x
+
+The tests run on all of them in CI. The SDK has no runtime dependencies and uses the built-in `fetch`.
 
 ## Quick Start
 
@@ -37,7 +39,11 @@ import { TronZapClient } from 'tronzap-sdk';
 // Initialize the client
 const client = new TronZapClient({
   apiToken: 'your_api_token',
-  apiSecret: 'your_api_secret'
+  apiSecret: 'your_api_secret',
+  // Optional: base URL, timeout in milliseconds (30000 by default) and your own fetch
+  // baseUrl: 'https://api.tronzap.com',
+  // timeout: 30_000,
+  // fetch: myFetch,
 });
 
 // Get available services
@@ -52,26 +58,25 @@ console.log(balance);
 const addressInfo = await client.getAddressInfo('TRX_ADDRESS');
 console.log(addressInfo);
 
-// Estimate energy amount for USDT transfer
+// Estimate energy amount for a USDT (TRC20) transfer; pass a token contract address as the third argument for another token
 const estimate = await client.estimateEnergy(
   'FROM_TRX_ADDRESS',
-  'TO_TRX_ADDRESS',
-  'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' // USDT contract address
+  'TO_TRX_ADDRESS'
 );
 console.log(estimate);
 
 // Calculate energy cost
 const calculation = await client.calculate(
   'TRON_WALLET_ADDRESS',
-  65150  // Recommended amount for USDT transfers
+  65000  // Energy amount
 );
 console.log(calculation);
 
 // Create energy transaction
 const transaction = await client.createEnergyTransaction(
   'TRON_WALLET_ADDRESS',
-  65150, // From 60000
-  1, // Possible values: 1 or 24 hours
+  65000, // Energy amount
+  1, // Duration (hours): one of the durations getServices() lists
   'my-tx-id',  // Optional external ID
   true        // Optional: activate address if needed
 );
@@ -80,7 +85,7 @@ console.log(transaction);
 // Buy bandwidth
 const bandwidth = await client.createBandwidthTransaction(
   'TRON_WALLET_ADDRESS',
-  1000,
+  345,
   'bandwidth-1'
 );
 console.log(bandwidth);
@@ -89,7 +94,7 @@ console.log(bandwidth);
 const bundle = await client.createResourceBundleTransaction(
   'TRON_WALLET_ADDRESS',
   65000, // energy amount
-  350,   // bandwidth amount
+  345,   // bandwidth amount
   1,     // duration (hours)
   'bundle-1', // optional external ID
   true        // optional: activate address
@@ -104,7 +109,7 @@ console.log(status);
 const amlCheck = await client.createAmlCheck(
   'address',
   'TRX',
-  'TXYZ1234567890EXAMPLEADDRESS'
+  'TRON_WALLET_ADDRESS'
 );
 console.log(amlCheck);
 
@@ -115,12 +120,18 @@ console.log(amlStatus);
 // Get direct recharge information
 const rechargeInfo = await client.getDirectRechargeInfo();
 console.log(rechargeInfo);
+
+// Every method takes request options as its last argument: a timeout or an AbortSignal
+// Aborting with controller.abort() rejects the call with the signal's reason
+const controller = new AbortController();
+const quickBalance = await client.getBalance({ timeout: 5_000, signal: controller.signal });
 ```
 
 ## Features
 
 - Full TypeScript support
 - Cross-platform compatibility (Node.js, Bun, Deno)
+- Request timeouts and cancellation with `AbortSignal`
 - Get available services
 - Get AML services
 - Get account balance
@@ -136,9 +147,7 @@ console.log(rechargeInfo);
 
 ## Requirements
 
-- Node.js v16.0.0 or higher, or
-- Bun v1.0.0 or higher, or
-- Deno v1.0.0 or higher
+- Node.js 20 or higher, Bun 1.x or Deno 2.x
 
 ## Error Handling
 
@@ -147,6 +156,7 @@ The SDK uses a hierarchy of error classes for precise error handling:
 ```
 TronZapError
 ├── ApiError             — API-level errors (response code != 0)
+├── InvalidRequestError  — Invalid arguments, rejected before sending
 ├── NetworkError         — Network/connectivity errors
 │   ├── ConnectionError  — Could not connect to server
 │   ├── TimeoutError     — Request timed out
@@ -164,6 +174,7 @@ import {
   TronZapClient,
   ApiError,
   HttpError,
+  InvalidRequestError,
   NetworkError,
   RateLimitError,
   ServerError,
@@ -191,9 +202,14 @@ try {
       console.error(`Error key: ${error.errorKey}`);
     }
 
+    // Quote it when contacting support
+    console.error(`Request ID: ${error.requestId ?? '-'}`);
+
     if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
       console.error('Check the TRON address format.');
     }
+  } else if (error instanceof InvalidRequestError) {
+    console.error(`Invalid arguments: ${error.message}`);
   } else if (error instanceof RateLimitError) {
     console.error('Too many requests, please slow down.');
   } else if (error instanceof UnauthorizedError) {
@@ -240,10 +256,7 @@ try {
 
 ```bash
 # Install dependencies
-npm install
-
-# Build the SDK
-npm run build
+npm ci
 
 # Run tests
 npm test
@@ -251,9 +264,12 @@ npm test
 # Lint code
 npm run lint
 
-# Format code
-npm run format
+# The same tests on Bun and Deno, if they are installed
+npm run test:bun
+npm run test:deno
 ```
+
+The tests run against a local HTTP/TLS server and never call the real API. `examples/basic-usage.ts` is a smoke test against a real environment (`npm run example`); the instructions are at the top of the file.
 
 ## Support
 

@@ -1,6 +1,6 @@
 # TronZap SDK para Node.js
 
-[English](README.md) | **[Español](README.es.md)** | [Português](README.pt-br.md) | [Русский](README.ru.md)
+[English](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.md) | **[Español](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.es.md)** | [Português](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.pt-br.md) | [Русский](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.ru.md)
 
 SDK oficial de Node.js para la API de TronZap.
 Este SDK te permite integrar fácilmente los servicios de TronZap para el alquiler de energía TRON.
@@ -23,9 +23,11 @@ pnpm add tronzap-sdk
 
 Este SDK está diseñado para funcionar en múltiples plataformas JavaScript/TypeScript:
 
-- **Node.js**: v16.0.0 o superior
-- **Bun**: v1.0.0 o superior
-- **Deno**: v1.0.0 o superior
+- **Node.js**: 20 o superior
+- **Bun**: 1.x
+- **Deno**: 2.x
+
+Las pruebas se ejecutan en todos ellos en CI. El SDK no tiene dependencias en tiempo de ejecución y usa el `fetch` integrado.
 
 ## Inicio Rápido
 
@@ -35,7 +37,11 @@ import { TronZapClient } from 'tronzap-sdk';
 // Inicializar el cliente
 const client = new TronZapClient({
   apiToken: 'tu_api_token',
-  apiSecret: 'tu_api_secret'
+  apiSecret: 'tu_api_secret',
+  // Opcional: URL base, tiempo de espera en milisegundos (30000 por defecto) y tu propio fetch
+  // baseUrl: 'https://api.tronzap.com',
+  // timeout: 30_000,
+  // fetch: myFetch,
 });
 
 // Obtener servicios disponibles
@@ -50,26 +56,25 @@ console.log(balance);
 const addressInfo = await client.getAddressInfo('TRX_ADDRESS');
 console.log(addressInfo);
 
-// Estimar cantidad de energía para transferencia USDT
+// Estimar cantidad de energía para una transferencia USDT (TRC20); pasa la dirección del contrato como tercer argumento para otro token
 const estimate = await client.estimateEnergy(
   'DIRECCION_ORIGEN_TRX',
-  'DIRECCION_DESTINO_TRX',
-  'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' // Dirección del contrato USDT
+  'DIRECCION_DESTINO_TRX'
 );
 console.log(estimate);
 
 // Calcular costo de energía
 const calculation = await client.calculate(
   'DIRECCION_BILLETERA_TRON',
-  65150  // Cantidad recomendada para transferencias USDT
+  65000  // Cantidad de energía
 );
 console.log(calculation);
 
 // Crear transacción de energía
 const transaction = await client.createEnergyTransaction(
   'DIRECCION_BILLETERA_TRON',
-  65150, // Desde 60000
-  1, // Valores posibles: 1 o 24 horas
+  65000, // Cantidad de energía
+  1, // Duración (horas): una de las duraciones que lista getServices()
   'mi-tx-id',  // ID externo opcional
   true        // Opcional: activar dirección si es necesario
 );
@@ -78,7 +83,7 @@ console.log(transaction);
 // Comprar ancho de banda
 const bandwidth = await client.createBandwidthTransaction(
   'DIRECCION_BILLETERA_TRON',
-  1000,
+  345,
   'bandwidth-1'
 );
 console.log(bandwidth);
@@ -87,7 +92,7 @@ console.log(bandwidth);
 const bundle = await client.createResourceBundleTransaction(
   'DIRECCION_BILLETERA_TRON',
   65000, // cantidad de energía
-  350,   // cantidad de ancho de banda
+  345,   // cantidad de ancho de banda
   1,     // duración (horas)
   'bundle-1', // ID externo opcional
   true        // opcional: activar dirección
@@ -102,7 +107,7 @@ console.log(status);
 const amlCheck = await client.createAmlCheck(
   'address',
   'TRX',
-  'TXYZ1234567890EXAMPLEADDRESS'
+  'DIRECCION_BILLETERA_TRON'
 );
 console.log(amlCheck);
 
@@ -113,12 +118,18 @@ console.log(amlStatus);
 // Obtener información de recarga directa
 const rechargeInfo = await client.getDirectRechargeInfo();
 console.log(rechargeInfo);
+
+// Todos los métodos aceptan opciones de solicitud como último argumento: un tiempo de espera o un AbortSignal
+// Al abortar con controller.abort(), la llamada se rechaza con el motivo de la señal
+const controller = new AbortController();
+const quickBalance = await client.getBalance({ timeout: 5_000, signal: controller.signal });
 ```
 
 ## Características
 
 - Soporte completo para TypeScript
 - Compatibilidad multiplataforma (Node.js, Bun, Deno)
+- Tiempos de espera y cancelación de solicitudes con `AbortSignal`
 - Obtener servicios disponibles
 - Obtener servicios AML
 - Obtener saldo de cuenta
@@ -134,9 +145,7 @@ console.log(rechargeInfo);
 
 ## Requisitos
 
-- Node.js v16.0.0 o superior, o
-- Bun v1.0.0 o superior, o
-- Deno v1.0.0 o superior
+- Node.js 20 o superior, Bun 1.x o Deno 2.x
 
 ## Manejo de Errores
 
@@ -145,6 +154,7 @@ El SDK utiliza una jerarquía de clases de error para un manejo preciso:
 ```
 TronZapError
 ├── ApiError             — errores a nivel de API (code != 0 en la respuesta)
+├── InvalidRequestError  — Argumentos inválidos, rechazados antes del envío
 ├── NetworkError         — errores de red/conectividad
 │   ├── ConnectionError  — no se pudo conectar al servidor
 │   ├── TimeoutError     — tiempo de espera agotado
@@ -162,6 +172,7 @@ import {
   TronZapClient,
   ApiError,
   HttpError,
+  InvalidRequestError,
   NetworkError,
   RateLimitError,
   ServerError,
@@ -189,9 +200,14 @@ try {
       console.error(`Clave de error: ${error.errorKey}`);
     }
 
+    // Indícalo al contactar con soporte
+    console.error(`ID de solicitud: ${error.requestId ?? '-'}`);
+
     if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
       console.error('Revisa el formato de la dirección TRON.');
     }
+  } else if (error instanceof InvalidRequestError) {
+    console.error(`Argumentos inválidos: ${error.message}`);
   } else if (error instanceof RateLimitError) {
     console.error('Demasiadas solicitudes. Reduce la frecuencia.');
   } else if (error instanceof UnauthorizedError) {
@@ -238,10 +254,7 @@ try {
 
 ```bash
 # Instalar dependencias
-npm install
-
-# Construir el SDK
-npm run build
+npm ci
 
 # Ejecutar pruebas
 npm test
@@ -249,9 +262,12 @@ npm test
 # Lintear código
 npm run lint
 
-# Formatear código
-npm run format
+# Las mismas pruebas en Bun y Deno, si están instalados
+npm run test:bun
+npm run test:deno
 ```
+
+Las pruebas usan un servidor HTTP/TLS local y nunca llaman a la API real. `examples/basic-usage.ts` es una prueba de humo contra un entorno real (`npm run example`); las instrucciones están al inicio del archivo.
 
 ## Soporte
 

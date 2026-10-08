@@ -1,6 +1,6 @@
 # TronZap SDK для Node.js
 
-[English](README.md) | [Español](README.es.md) | [Português](README.pt-br.md) | **[Русский](README.ru.md)**
+[English](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.md) | [Español](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.es.md) | [Português](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.pt-br.md) | **[Русский](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.ru.md)**
 
 Официальный SDK Node.js для API TronZap.
 Этот SDK позволяет легко интегрировать сервисы TronZap для аренды энергии TRON.
@@ -23,9 +23,11 @@ pnpm add tronzap-sdk
 
 Этот SDK разработан для работы на различных платформах JavaScript/TypeScript:
 
-- **Node.js**: v16.0.0 или выше
-- **Bun**: v1.0.0 или выше
-- **Deno**: v1.0.0 или выше
+- **Node.js**: 20 или выше
+- **Bun**: 1.x
+- **Deno**: 2.x
+
+Тесты запускаются на всех трёх в CI. У SDK нет зависимостей во время выполнения, он использует встроенный `fetch`.
 
 ## Быстрый старт
 
@@ -35,7 +37,11 @@ import { TronZapClient } from 'tronzap-sdk';
 // Инициализация клиента
 const client = new TronZapClient({
   apiToken: 'ваш_api_токен',
-  apiSecret: 'ваш_api_секрет'
+  apiSecret: 'ваш_api_секрет',
+  // Опционально: базовый URL, таймаут в миллисекундах (по умолчанию 30000) и собственный fetch
+  // baseUrl: 'https://api.tronzap.com',
+  // timeout: 30_000,
+  // fetch: myFetch,
 });
 
 // Получение доступных сервисов
@@ -50,26 +56,25 @@ console.log(balance);
 const addressInfo = await client.getAddressInfo('TRX_ADDRESS');
 console.log(addressInfo);
 
-// Оценка количества энергии для перевода USDT
+// Оценка количества энергии для перевода USDT (TRC20); для другого токена передайте адрес контракта третьим аргументом
 const estimate = await client.estimateEnergy(
   'АДРЕС_ОТПРАВИТЕЛЯ_TRX',
-  'АДРЕС_ПОЛУЧАТЕЛЯ_TRX',
-  'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' // Адрес контракта USDT
+  'АДРЕС_ПОЛУЧАТЕЛЯ_TRX'
 );
 console.log(estimate);
 
 // Расчет стоимости энергии
 const calculation = await client.calculate(
   'АДРЕС_КОШЕЛЬКА_TRON',
-  65150  // Рекомендуемое количество для переводов USDT
+  65000  // Количество энергии
 );
 console.log(calculation);
 
 // Создание транзакции энергии
 const transaction = await client.createEnergyTransaction(
   'АДРЕС_КОШЕЛЬКА_TRON',
-  65150, // От 60000
-  1, // Возможные значения: 1 или 24 часа
+  65000, // Количество энергии
+  1, // Длительность (часы): одна из длительностей, которые возвращает getServices()
   'мой-trx-id',  // Опциональный внешний ID
   true        // Опционально: активировать адрес если нужно
 );
@@ -78,7 +83,7 @@ console.log(transaction);
 // Покупка bandwidth
 const bandwidth = await client.createBandwidthTransaction(
   'АДРЕС_КОШЕЛЬКА_TRON',
-  1000,
+  345,
   'bandwidth-1'
 );
 console.log(bandwidth);
@@ -87,7 +92,7 @@ console.log(bandwidth);
 const bundle = await client.createResourceBundleTransaction(
   'АДРЕС_КОШЕЛЬКА_TRON',
   65000, // количество energy
-  350,   // количество bandwidth
+  345,   // количество bandwidth
   1,     // длительность (часы)
   'bundle-1', // внешний ID (опционально)
   true        // опционально: активация адреса
@@ -102,7 +107,7 @@ console.log(status);
 const amlCheck = await client.createAmlCheck(
   'address',
   'TRX',
-  'TXYZ1234567890EXAMPLEADDRESS'
+  'АДРЕС_КОШЕЛЬКА_TRON'
 );
 console.log(amlCheck);
 
@@ -113,12 +118,18 @@ console.log(amlStatus);
 // Получение информации о прямой подзарядке
 const rechargeInfo = await client.getDirectRechargeInfo();
 console.log(rechargeInfo);
+
+// Каждый метод принимает параметры запроса последним аргументом: таймаут или AbortSignal
+// При отмене через controller.abort() вызов завершается с причиной сигнала
+const controller = new AbortController();
+const quickBalance = await client.getBalance({ timeout: 5_000, signal: controller.signal });
 ```
 
 ## Возможности
 
 - Полная поддержка TypeScript
 - Кросс-платформенная совместимость (Node.js, Bun, Deno)
+- Таймауты и отмена запросов через `AbortSignal`
 - Получение доступных сервисов
 - Получение AML-сервисов
 - Получение баланса аккаунта
@@ -134,9 +145,7 @@ console.log(rechargeInfo);
 
 ## Требования
 
-- Node.js v16.0.0 или выше, или
-- Bun v1.0.0 или выше, или
-- Deno v1.0.0 или выше
+- Node.js 20 или выше, Bun 1.x или Deno 2.x
 
 ## Обработка ошибок
 
@@ -145,6 +154,7 @@ SDK использует иерархию классов ошибок для т�
 ```
 TronZapError
 ├── ApiError             — ошибки API (code != 0 в ответе)
+├── InvalidRequestError  — неверные аргументы, отклонены до отправки
 ├── NetworkError         — сетевые ошибки
 │   ├── ConnectionError  — невозможно подключиться к серверу
 │   ├── TimeoutError     — превышено время ожидания
@@ -162,6 +172,7 @@ import {
   TronZapClient,
   ApiError,
   HttpError,
+  InvalidRequestError,
   NetworkError,
   RateLimitError,
   ServerError,
@@ -189,9 +200,14 @@ try {
       console.error(`Ключ ошибки: ${error.errorKey}`);
     }
 
+    // Укажите его при обращении в поддержку
+    console.error(`ID запроса: ${error.requestId ?? '-'}`);
+
     if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
       console.error('Проверьте формат адреса TRON.');
     }
+  } else if (error instanceof InvalidRequestError) {
+    console.error(`Неверные аргументы: ${error.message}`);
   } else if (error instanceof RateLimitError) {
     console.error('Слишком много запросов. Замедлите частоту обращений.');
   } else if (error instanceof UnauthorizedError) {
@@ -238,10 +254,7 @@ try {
 
 ```bash
 # Установка зависимостей
-npm install
-
-# Сборка SDK
-npm run build
+npm ci
 
 # Запуск тестов
 npm test
@@ -249,9 +262,12 @@ npm test
 # Проверка кода
 npm run lint
 
-# Форматирование кода
-npm run format
+# Те же тесты в Bun и Deno, если они установлены
+npm run test:bun
+npm run test:deno
 ```
+
+Тесты работают с локальным HTTP/TLS-сервером и никогда не обращаются к реальному API. `examples/basic-usage.ts` — smoke-тест против реального окружения (`npm run example`); инструкции в начале файла.
 
 ## Поддержка
 
