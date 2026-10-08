@@ -31,7 +31,9 @@
     "format": "prettier --write .",
     "check-package": "publint --strict && attw --pack .",
     "prepack": "npm run build",
-    "example": "tsx examples/basic-usage.ts"
+    "example": "tsx examples/basic-usage.ts",
+    "test:bun": "bun --bun node_modules/vitest/vitest.mjs run",
+    "test:deno": "deno run --allow-all node_modules/vitest/vitest.mjs run"
   },
   "keywords": [
     "TronZap",

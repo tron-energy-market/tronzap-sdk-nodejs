@@ -1,0 +1,34 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # Types of a newer Node.js would let code use APIs that Node.js 20 does not have.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # Vitest 5 needs Node.js 22.12, and the SDK is tested on Node.js 20.
+      - dependency-name: vitest
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vitest/coverage-v8'
+        update-types: ['version-update:semver-major']
+      # tsup sets baseUrl when it builds the declarations, which TypeScript 6 rejects.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+    groups:
+      development-dependencies:
+        patterns: ['*']
+    commit-message:
+      prefix: chore
