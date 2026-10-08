@@ -9,7 +9,7 @@ import {
   ServerError,
   SslError,
   TimeoutError,
-  TronZapConfig,
+  type TronZapConfig,
   UnauthorizedError,
 } from './types';
 
