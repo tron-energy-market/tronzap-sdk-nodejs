@@ -119,7 +119,7 @@ jobs:
           ' "$version" || { echo "::error::npm ${version} cannot stage a package"; exit 1; }
 
       - name: Stage
-        run: npm stage publish package/*.tgz
+        run: npm stage publish ./package/*.tgz
 
   github-release:
     name: Draft the GitHub release
