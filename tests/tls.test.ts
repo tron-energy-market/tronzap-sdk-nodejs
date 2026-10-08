@@ -10,7 +10,7 @@ afterEach(async () => {
 });
 
 it('rejects a certificate from an untrusted authority before sending anything', async () => {
-  server = await ApiServer.https(testCertificate());
+  server = await ApiServer.https(await testCertificate());
   const client = new TronZapClient({ apiToken: 'token', apiSecret: 'secret', baseUrl: server.url });
 
   await expect(client.getBalance()).rejects.toBeInstanceOf(SslError);
@@ -18,7 +18,7 @@ it('rejects a certificate from an untrusted authority before sending anything', 
 });
 
 it('rejects a certificate through a custom fetch as well', async () => {
-  server = await ApiServer.https(testCertificate(), '127.0.0.1');
+  server = await ApiServer.https(await testCertificate(), '127.0.0.1');
   const client = new TronZapClient({
     apiToken: 'token',
     apiSecret: 'secret',
