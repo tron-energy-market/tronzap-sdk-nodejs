@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file. The format is b
 Versions 1.1.0 to 1.4.0 were tagged on GitHub but never published to npm, where the previous version is 1.0.4.
 Upgrading from 1.0.4 to 1.5.0 brings their changes as well.
 
-## [Unreleased]
+## [1.5.0] - 2026-10-08
 
 ### Added
 
