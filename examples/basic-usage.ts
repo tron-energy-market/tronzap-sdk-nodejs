@@ -1,116 +1,256 @@
-import { TronZapClient } from '../dist/index.js';
+/*
+ * Walks through the TronZap API operations. By default it only reads and spends nothing.
+ *
+ *     export TRONZAP_API_TOKEN=your_api_token
+ *     export TRONZAP_API_SECRET=your_api_secret
+ *     export TRONZAP_BASE_URL=https://api.tronzap.com  # optional, e.g. a dev host
+ *     export TRONZAP_ADDRESS=TRON_ADDRESS              # optional
+ *     export TRONZAP_FROM_ADDRESS=TRON_ADDRESS         # optional, with TO_ADDRESS
+ *     export TRONZAP_TO_ADDRESS=TRON_ADDRESS           # optional, with FROM_ADDRESS
+ *     export TRONZAP_TRANSACTION_ID=id                 # optional
+ *     export TRONZAP_AML_CHECK_ID=id                   # optional
+ *     npm install
+ *     npm run example
+ *
+ * Setting TRONZAP_ALLOW_PURCHASES=1 additionally exercises the endpoints that create transactions and AML checks.
+ * Those DEBIT THE ACCOUNT BALANCE. It is meant for verifying an integration against a development environment, and
+ * it also needs TRONZAP_ADDRESS.
+ */
 
-async function main() {
-  // Initialize the client
-  const client = new TronZapClient({
-    apiToken: process.env.TRONZAP_API_TOKEN || 'your_api_token',
-    apiSecret: process.env.TRONZAP_API_SECRET || 'your_api_secret'
-  });
+import { ApiError, ErrorCode, TronZapClient, TronZapError } from '../src';
 
-  try {
-    // Get available services
-    console.log('Fetching available services...');
-    const services = await client.getServices();
-    console.log('Available services:', services);
+const ENERGY = 65000;
+const BANDWIDTH = 345;
 
-    // Get account balance
-    console.log('\nFetching account balance...');
-    const balance = await client.getBalance();
-    console.log('Account balance:', balance);
-
-    // Get address info (resources and balances)
-    console.log('\nFetching address info...');
-    const addressInfo = await client.getAddressInfo('TRON_WALLET_ADDRESS');
-    console.log('Address info:', addressInfo);
-
-    // Estimate energy cost for a TRON address
-    console.log('\nEstimating energy cost...');
-    const fromAddress = 'TRON_WALLET_ADDRESS';
-    const toAddress = 'TRON_WALLET_ADDRESS';
-    const contractAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // e.g. USDT TRC20
-    const energyEstimate = await client.estimateEnergy(fromAddress, toAddress, contractAddress);
-    console.log('Energy estimate:', energyEstimate);
-
-    // Calculate energy cost for a TRON address
-    console.log('\nCalculating energy cost...');
-
-    const address = 'TRON_WALLET_ADDRESS'; // Replace with actual TRON address
-    const energyAmount = 65150; // From 32000
-    const duration = 1; // Possible values: 1 hour or 24 hours
-
-    const calculation = await client.calculate(address, energyAmount);
-    console.log('Energy cost calculation:', calculation);
-
-    // Create an energy transaction
-    console.log('\nCreating energy transaction...');
-    const transaction = await client.createEnergyTransaction(
-      address,
-      energyAmount,
-      duration,
-      'example-tx-' + Date.now(),
-      true
-    );
-    console.log('Created transaction:', transaction);
-
-    // Create a bandwidth transaction
-    console.log('\nCreating bandwidth transaction...');
-    const bandwidth = await client.createBandwidthTransaction(
-      address,
-      1000,
-      'bandwidth-' + Date.now()
-    );
-    console.log('Bandwidth transaction:', bandwidth);
-
-    // Create a resource bundle transaction (energy + bandwidth in one purchase)
-    console.log('\nCreating resource bundle transaction...');
-    const bundle = await client.createResourceBundleTransaction(
-      address,
-      energyAmount,        // energy amount
-      350,                 // bandwidth amount
-      duration,            // duration (hours), currently only 1
-      'bundle-' + Date.now(),
-      true                 // activate address
-    );
-    console.log('Resource bundle transaction:', bundle);
-
-    // Check transaction status
-    console.log('\nChecking transaction status...');
-    const status = await client.checkTransaction(transaction.id);
-    console.log('Transaction status:', status);
-
-    // AML services
-    console.log('\nFetching AML services...');
-    const amlServices = await client.getAmlServices();
-    console.log('AML services:', amlServices);
-
-    // Create AML check
-    console.log('\nCreating AML check...');
-    const amlCheck = await client.createAmlCheck(
-      'address',
-      'TRX',
-      'TXYZ1234567890EXAMPLEADDRESS'
-    );
-    console.log('AML check:', amlCheck);
-
-    if (amlCheck.id) {
-      console.log('\nChecking AML status...');
-      const amlStatus = await client.checkAmlStatus(amlCheck.id);
-      console.log('AML status:', amlStatus);
-    }
-
-    // AML history
-    console.log('\nFetching AML history...');
-    const amlHistory = await client.getAmlHistory(1, 5);
-    console.log('AML history:', amlHistory);
-
-    // Get direct recharge information
-    console.log('\nFetching direct recharge information...');
-    const rechargeInfo = await client.getDirectRechargeInfo();
-    console.log('Direct recharge info:', rechargeInfo);
-
-  } catch (error) {
-    console.error('Error:', error);
-  }
+function env(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value === '' ? undefined : value;
 }
 
-main();
+function field(data: unknown, key: string): string {
+  const value: unknown =
+    typeof data === 'object' && data !== null ? (data as Record<string, unknown>)[key] : undefined;
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+    ? String(value)
+    : '-';
+}
+
+function rows(data: unknown, key: string): unknown[] {
+  const value: unknown =
+    typeof data === 'object' && data !== null ? (data as Record<string, unknown>)[key] : undefined;
+  return Array.isArray(value) ? value.filter(row => typeof row === 'object' && row !== null) : [];
+}
+
+function printTransaction(transaction: unknown): void {
+  console.log(
+    `  ${field(transaction, 'id')} ${field(transaction, 'service')} ${field(transaction, 'status')}, ` +
+      `charged ${field(transaction, 'amount')}, created ${field(transaction, 'created_at')}`
+  );
+}
+
+async function main(): Promise<number> {
+  const token = env('TRONZAP_API_TOKEN');
+  const secret = env('TRONZAP_API_SECRET');
+  if (token === undefined || secret === undefined) {
+    console.error('set TRONZAP_API_TOKEN and TRONZAP_API_SECRET');
+    return 1;
+  }
+
+  const baseUrl = env('TRONZAP_BASE_URL') ?? 'https://api.tronzap.com';
+  const client = new TronZapClient({
+    apiToken: token,
+    apiSecret: secret,
+    baseUrl,
+    timeout: 20_000,
+  });
+  console.log(`Calling ${baseUrl}`);
+
+  const failed: string[] = [];
+
+  async function step(name: string, call: () => Promise<void>): Promise<void> {
+    console.log(`\n${name}`);
+    try {
+      await call();
+    } catch (error) {
+      if (!(error instanceof TronZapError)) {
+        throw error;
+      }
+      console.log(`  FAILED: ${error.name}: ${error.message} (code ${String(error.code)})`);
+      failed.push(name);
+    }
+  }
+
+  async function optionalStep(
+    name: string,
+    subject: string | undefined,
+    call: (value: string) => Promise<void>
+  ): Promise<void> {
+    if (subject === undefined) {
+      console.log(`\n${name}\n  skipped: its environment variable is not set`);
+      return;
+    }
+    await step(name, () => call(subject));
+  }
+
+  await step('getBalance', async () => {
+    const balance: unknown = await client.getBalance();
+    console.log(
+      `  balance ${field(balance, 'balance')}, deposit address ${field(balance, 'address')}`
+    );
+  });
+
+  await step('getServices', async () => {
+    const services: unknown = await client.getServices();
+    for (const rate of rows(services, 'energy')) {
+      console.log(
+        `  energy ${field(rate, 'duration')}h ${field(rate, 'min_energy')}..${field(rate, 'max_energy')} ` +
+          `at ${field(rate, 'price')} per unit (65k = ${field(rate, 'price_65k')})`
+      );
+    }
+    for (const rate of rows(services, 'bandwidth')) {
+      console.log(
+        `  bandwidth ${field(rate, 'duration')}h ${field(rate, 'min_amount')}..${field(rate, 'max_amount')} ` +
+          `at ${field(rate, 'price')} per 1000 units`
+      );
+    }
+    const activation: unknown = (services as Record<string, unknown> | null)?.activate_address;
+    if (typeof activation === 'object' && activation !== null) {
+      console.log(`  activation ${field(activation, 'price')}`);
+    }
+  });
+
+  await step('getDirectRechargeInfo', async () => {
+    const info: unknown = await client.getDirectRechargeInfo();
+    console.log(
+      `  pay to ${field(info, 'address')}, ${String(rows(info, 'rates').length)} rate(s)`
+    );
+  });
+
+  await step('getAmlServices', async () => {
+    const services: unknown = await client.getAmlServices();
+    for (const service of Array.isArray(services) ? (services as unknown[]) : []) {
+      console.log(
+        `  ${field(service, 'id')} ${field(service, 'type')} at ${field(service, 'price')}`
+      );
+    }
+  });
+
+  await step('getAmlHistory', async () => {
+    const history: unknown = await client.getAmlHistory();
+    console.log(
+      `  page ${field(history, 'page')}, ${String(rows(history, 'items').length)} of ` +
+        `${field(history, 'total')} check(s)`
+    );
+  });
+
+  const address = env('TRONZAP_ADDRESS');
+
+  await optionalStep('getAddressInfo', address, async value => {
+    const info: unknown = await client.getAddressInfo(value);
+    const { resources, balances } = (info ?? {}) as Record<string, unknown>;
+    const listed =
+      typeof balances === 'object' && balances !== null
+        ? Object.keys(balances).map(symbol => `${symbol} ${field(balances, symbol)}`)
+        : [];
+    console.log(
+      `  energy ${field(resources, 'energy')}, bandwidth ${field(resources, 'bandwidth')}, ` +
+        `balances ${listed.join(', ')}`
+    );
+  });
+
+  await optionalStep('calculate', address, async value => {
+    const calculation: unknown = await client.calculate(value, ENERGY);
+    console.log(
+      `  ${field(calculation, 'energy')} energy for ${field(calculation, 'duration')}h ` +
+        `costs ${field(calculation, 'total')}`
+    );
+  });
+
+  const toAddress = env('TRONZAP_TO_ADDRESS');
+  await optionalStep(
+    'estimateEnergy',
+    toAddress === undefined ? undefined : env('TRONZAP_FROM_ADDRESS'),
+    async value => {
+      const estimate: unknown = await client.estimateEnergy(value, toAddress ?? '');
+      console.log(`  ${field(estimate, 'energy')} energy, total ${field(estimate, 'total')}`);
+    }
+  );
+
+  await optionalStep('checkTransaction', env('TRONZAP_TRANSACTION_ID'), async value => {
+    printTransaction(await client.checkTransaction(value));
+  });
+
+  await optionalStep('checkAmlStatus', env('TRONZAP_AML_CHECK_ID'), async value => {
+    const check: unknown = await client.checkAmlStatus(value);
+    const risk = field(check, 'risk_score');
+    console.log(`  ${field(check, 'status')}, risk ${risk === '-' ? 'not scored yet' : risk}`);
+  });
+
+  if (env('TRONZAP_ALLOW_PURCHASES') !== '1') {
+    console.log(
+      '\nSkipping purchases: set TRONZAP_ALLOW_PURCHASES=1 to create transactions (debits the balance)'
+    );
+  } else if (address === undefined) {
+    console.log('\nSkipping purchases: TRONZAP_ADDRESS is not set');
+  } else {
+    const runId = `node-example-${String(Date.now())}`;
+
+    await step('createAddressActivationTransaction', async () => {
+      try {
+        printTransaction(
+          await client.createAddressActivationTransaction(address, `${runId}-activate`)
+        );
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.code !== ErrorCode.ADDRESS_ALREADY_ACTIVATED) {
+          throw error;
+        }
+        console.log('  already activated');
+      }
+    });
+
+    await step('createEnergyTransaction', async () => {
+      printTransaction(await client.createEnergyTransaction(address, ENERGY, 1, `${runId}-energy`));
+      printTransaction(await client.checkTransaction(undefined, `${runId}-energy`));
+    });
+
+    await step('createBandwidthTransaction', async () => {
+      printTransaction(
+        await client.createBandwidthTransaction(address, BANDWIDTH, `${runId}-bandwidth`)
+      );
+    });
+
+    await step('createResourceBundleTransaction', async () => {
+      printTransaction(
+        await client.createResourceBundleTransaction(
+          address,
+          ENERGY,
+          BANDWIDTH,
+          1,
+          `${runId}-bundle`
+        )
+      );
+    });
+
+    await step('createAmlCheck', async () => {
+      const check: unknown = await client.createAmlCheck('address', 'TRX', address);
+      console.log(`  AML check ${field(check, 'id')} is ${field(check, 'status')}`);
+    });
+  }
+
+  if (failed.length > 0) {
+    console.error(`\nFailed: ${failed.join(', ')}`);
+    return 1;
+  }
+  console.log('\nAll calls succeeded');
+  return 0;
+}
+
+main().then(
+  code => {
+    process.exitCode = code;
+  },
+  (error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  }
+);

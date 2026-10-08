@@ -15,6 +15,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['examples/**'],
+    rules: { '@typescript-eslint/no-unsafe-enum-comparison': 'off' },
+  },
+  {
     files: ['**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   }

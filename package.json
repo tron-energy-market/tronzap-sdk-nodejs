@@ -30,7 +30,8 @@
     "lint": "eslint . && prettier --check . && tsc",
     "format": "prettier --write .",
     "check-package": "publint --strict && attw --pack .",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "example": "tsx examples/basic-usage.ts"
   },
   "keywords": [
     "TronZap",
@@ -87,6 +88,7 @@
     "publint": "^0.3.25",
     "reflect-metadata": "^0.2.2",
     "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^4.1.11"
