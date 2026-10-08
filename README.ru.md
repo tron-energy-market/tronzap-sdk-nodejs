@@ -1,13 +1,14 @@
-# TronZap SDK для Node.js
+# Покупка энергии Tron через API
+## Node.js SDK от TronZap.com
 
 [English](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.md) | [Español](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.es.md) | [Português](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.pt-br.md) | **[Русский](https://github.com/tron-energy-market/tronzap-sdk-nodejs/blob/main/README.ru.md)**
 
-Официальный SDK Node.js для API TronZap.
-Этот SDK позволяет легко интегрировать сервисы TronZap для аренды энергии TRON.
+Официальный Node.js SDK для API TronZap.
+Данный SDK позволяет легко интегрировать сервисы TronZap для аренды энергии TRON.
 
-TronZap.com позволяет вам [купить энергию TRON](https://tronzap.com/), делая переводы USDT (TRC20) дешевле за счет значительного снижения комиссий за транзакции.
+TronZap.com позволяет [покупать энергию TRON](https://tronzap.com/), существенно снижая комиссии при переводах USDT (TRC20).
 
-👉 [Зарегистрируйтесь для получения API ключа](https://tronzap.com), чтобы начать использовать Tron Energy API и интегрировать его через SDK.
+👉 [Зарегистрируйтесь для получения API ключа](https://tronzap.com), чтобы начать использовать TronZap API.
 
 ## Установка
 
