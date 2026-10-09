@@ -143,10 +143,39 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 - Crear y seguir chequeos AML
 - Verificar estado de transacciones
 - Obtener información de recarga directa
+- Listar planes de suscripción, iniciar, consultar y detener suscripciones, historial de suscripciones
 
 ## Requisitos
 
 - Node.js 20 o superior, Bun 1.x o Deno 2.x
+
+## Suscripciones
+
+Una suscripción mantiene una dirección abastecida de energía para cada transacción hasta que se detiene o se agotan sus días o transacciones. Elija un plan de `getSubscriptions()`, un objeto con un plan por clave en el orden de la API, y pase su clave, como `'unlimited_energy'`, no el `id` numérico del plan. Iniciar una suscripción cobra el precio inicial del plan.
+
+```typescript
+const plans = await client.getSubscriptions();
+for (const [subscriptionId, plan] of Object.entries(plans)) {
+  console.log(subscriptionId, plan.initial_price, plan.price);
+}
+
+const subscription = await client.startSubscription(
+  'unlimited_energy',
+  'TRON_WALLET_ADDRESS',
+  30, // 0 para no limitar el tiempo
+  0,  // 0 para no limitar
+  'subscription-42' // ID externo opcional
+);
+
+await client.checkSubscription(undefined, 'subscription-42');
+await client.stopSubscription(subscription.id);
+
+const history = await client.getSubscriptionHistory(1, 10, 'active');
+```
+
+`durationDays` (en días, a diferencia de las horas de las transacciones) y `transactionsLimit` valen 0 por defecto, lo que significa sin límite. `checkSubscription` y `stopSubscription` aceptan el `id` de la suscripción, su `externalId` o ambos, como `checkTransaction`. La paginación del historial usa por defecto la página 1 con 10 elementos.
+
+Iniciar, consultar y detener devuelven la suscripción con sus `params`; los elementos del historial traen en su lugar los contadores de uso `transactions_used`, `energy_used` y `total_price`. Una suscripción con límite de transacciones no se puede detener (`ErrorCode.CANNOT_STOP_SUBSCRIPTION`).
 
 ## Manejo de Errores
 
@@ -239,11 +268,11 @@ try {
 | 2      | `INVALID_SERVICE_OR_PARAMS`   | Servicio o parámetros inválidos |
 | 5      | `WALLET_NOT_FOUND`            | Billetera interna no encontrada. Contacta a soporte. |
 | 6      | `INSUFFICIENT_FUNDS`          | Fondos insuficientes |
-| 10     | `INVALID_TRON_ADDRESS`        | Dirección TRON inválida |
+| 10     | `INVALID_TRON_ADDRESS`        | Dirección TRON inválida, o la dirección ya tiene una suscripción activa |
 | 11     | `INVALID_ENERGY_AMOUNT`       | Cantidad de energía inválida |
 | 12     | `INVALID_DURATION`            | Duración inválida |
 | 20     | `TRANSACTION_NOT_FOUND`       | Transacción/suscripción no encontrada |
-| 21     | `CANNOT_STOP_SUBSCRIPTION`    | No se puede detener la suscripción |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`    | No se puede detener la suscripción, p. ej. tiene límite de transacciones |
 | 24     | `ADDRESS_NOT_ACTIVATED`       | Dirección no activada |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`   | Dirección ya activada |
 | 30     | `AML_CHECK_NOT_FOUND`         | Chequeo AML no encontrado |

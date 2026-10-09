@@ -24,11 +24,13 @@ export enum ErrorCode {
   INVALID_SERVICE_OR_PARAMS = 2,
   WALLET_NOT_FOUND = 5,
   INSUFFICIENT_FUNDS = 6,
+  /** Invalid TRON address, or the address already has an active subscription. */
   INVALID_TRON_ADDRESS = 10,
   INVALID_ENERGY_AMOUNT = 11,
   INVALID_DURATION = 12,
   /** The API reports it with the key `subscription_not_found`. */
   TRANSACTION_NOT_FOUND = 20,
+  /** Cannot stop subscription, e.g. it has a transactions limit. */
   CANNOT_STOP_SUBSCRIPTION = 21,
   ADDRESS_NOT_ACTIVATED = 24,
   ADDRESS_ALREADY_ACTIVATED = 25,

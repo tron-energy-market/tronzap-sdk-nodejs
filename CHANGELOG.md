@@ -9,8 +9,23 @@ Upgrading from 1.0.4 to 1.5.0 brings their changes as well.
 
 ## [Unreleased]
 
+### Added
+
+- Subscriptions: `getSubscriptions()`, `startSubscription(subscriptionId, address, durationDays, transactionsLimit,
+  externalId, activateAddress)`, `checkSubscription(id, externalId)`, `stopSubscription(id, externalId)` and
+  `getSubscriptionHistory(page, perPage, status)`. Like the other methods they return the API's result as is.
+  `getSubscriptions()` returns the plans keyed by their subscription id, such as `unlimited_energy`, which is what
+  `startSubscription` takes; an empty plan list is `{}`. `durationDays` is in days, and it and `transactionsLimit`
+  default to 0, meaning no limit. A missing plan or address, a negative `durationDays` or `transactionsLimit`, and
+  check or stop without an id throw `InvalidRequestError` before any request is sent.
+- `examples/basic-usage.ts` lists the subscription plans and history, checks the subscription in
+  `TRONZAP_SUBSCRIPTION_ID`, and with purchases allowed and `TRONZAP_SUBSCRIPTION_PLAN` set starts a one-day
+  subscription, checks it and stops it.
+
 ### Changed
 
+- Documented error codes: 10 `INVALID_TRON_ADDRESS` also means the address already has an active subscription, and
+  21 `CANNOT_STOP_SUBSCRIPTION` is reported, e.g., for a subscription with a transactions limit.
 - `examples/basic-usage.ts` reads the API's `amount`, `min_amount` and `max_amount` fields instead of the deprecated
   `energy`, `min_energy` and `max_energy`.
 

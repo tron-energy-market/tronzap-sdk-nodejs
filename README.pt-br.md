@@ -143,10 +143,39 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 - Criar e acompanhar checagens AML
 - Verificar status de transações
 - Obter informações de recarga direta
+- Listar planos de assinatura, iniciar, consultar e parar assinaturas, histórico de assinaturas
 
 ## Requisitos
 
 - Node.js 20 ou superior, Bun 1.x ou Deno 2.x
+
+## Assinaturas
+
+Uma assinatura mantém um endereço abastecido de energia para cada transação até ser parada ou esgotar seus dias ou transações. Escolha um plano de `getSubscriptions()`, um objeto com um plano por chave na ordem da API, e passe a sua chave, como `'unlimited_energy'`, não o `id` numérico do plano. Iniciar uma assinatura cobra o preço inicial do plano.
+
+```typescript
+const plans = await client.getSubscriptions();
+for (const [subscriptionId, plan] of Object.entries(plans)) {
+  console.log(subscriptionId, plan.initial_price, plan.price);
+}
+
+const subscription = await client.startSubscription(
+  'unlimited_energy',
+  'TRON_WALLET_ADDRESS',
+  30, // 0 para não limitar o tempo
+  0,  // 0 para não limitar
+  'subscription-42' // ID externo opcional
+);
+
+await client.checkSubscription(undefined, 'subscription-42');
+await client.stopSubscription(subscription.id);
+
+const history = await client.getSubscriptionHistory(1, 10, 'active');
+```
+
+`durationDays` (em dias, ao contrário das horas das transações) e `transactionsLimit` valem 0 por padrão, o que significa sem limite. `checkSubscription` e `stopSubscription` aceitam o `id` da assinatura, o seu `externalId` ou ambos, como `checkTransaction`. A paginação do histórico usa por padrão a página 1 com 10 itens.
+
+Iniciar, consultar e parar retornam a assinatura com seus `params`; os itens do histórico trazem em vez disso os contadores de uso `transactions_used`, `energy_used` e `total_price`. Uma assinatura com limite de transações não pode ser parada (`ErrorCode.CANNOT_STOP_SUBSCRIPTION`).
 
 ## Tratamento de Erros
 
@@ -239,11 +268,11 @@ try {
 | 2      | `INVALID_SERVICE_OR_PARAMS`   | Serviço ou parâmetros inválidos |
 | 5      | `WALLET_NOT_FOUND`            | Carteira interna não encontrada. Contate o suporte. |
 | 6      | `INSUFFICIENT_FUNDS`          | Saldo insuficiente |
-| 10     | `INVALID_TRON_ADDRESS`        | Endereço TRON inválido |
+| 10     | `INVALID_TRON_ADDRESS`        | Endereço TRON inválido, ou o endereço já tem uma assinatura ativa |
 | 11     | `INVALID_ENERGY_AMOUNT`       | Quantidade de energia inválida |
 | 12     | `INVALID_DURATION`            | Duração inválida |
 | 20     | `TRANSACTION_NOT_FOUND`       | Transação/assinatura não encontrada |
-| 21     | `CANNOT_STOP_SUBSCRIPTION`    | Não é possível parar a assinatura |
+| 21     | `CANNOT_STOP_SUBSCRIPTION`    | Não é possível parar a assinatura, p. ex. ela tem limite de transações |
 | 24     | `ADDRESS_NOT_ACTIVATED`       | Endereço não ativado |
 | 25     | `ADDRESS_ALREADY_ACTIVATED`   | Endereço já ativado |
 | 30     | `AML_CHECK_NOT_FOUND`         | Checagem AML não encontrada |

@@ -134,6 +134,13 @@ function present(value: string | null | undefined): value is string {
   return value !== undefined && value !== null && value !== '';
 }
 
+function notNegative(name: string, value: number): number {
+  if (!(value >= 0)) {
+    throw new InvalidRequestError(`${name} cannot be negative`);
+  }
+  return value;
+}
+
 function atLeast(value: number, minimum: number, fallback: number): number {
   return value >= minimum ? value : fallback;
 }
@@ -372,17 +379,7 @@ export class TronZapClient {
     externalId?: string,
     options?: RequestOptions
   ): Promise<ApiResult> {
-    const data: Params = {};
-    if (present(id)) {
-      data.id = id;
-    }
-    if (present(externalId)) {
-      data.external_id = externalId;
-    }
-    if (Object.keys(data).length === 0) {
-      throw new InvalidRequestError('id or externalId is required');
-    }
-    return this.request('/v1/transaction/check', data, options);
+    return this.requestById('/v1/transaction/check', id, externalId, options);
   }
 
   async checkAmlStatus(id: string, options?: RequestOptions): Promise<ApiResult> {
@@ -410,6 +407,79 @@ export class TronZapClient {
     return this.request('/v1/direct-recharge-info', {}, options);
   }
 
+  /**
+   * Subscription plans on sale, keyed by the plan's subscription id such as `unlimited_energy`, in the API's order.
+   * Pass that key, not the plan's numeric `id`, to `startSubscription`.
+   */
+  async getSubscriptions(options?: RequestOptions): Promise<Record<string, ApiResult>> {
+    const plans: unknown = await this.request('/v1/subscriptions', {}, options);
+    // The API encodes an empty plan list as [].
+    return Array.isArray(plans) && plans.length === 0 ? {} : (plans as Record<string, ApiResult>);
+  }
+
+  /**
+   * Subscribes `address` to the plan `subscriptionId`, a key of `getSubscriptions()`. `durationDays` and
+   * `transactionsLimit` are 0 for no limit. Starting a subscription charges the plan's initial price.
+   */
+  async startSubscription(
+    subscriptionId: string,
+    address: string,
+    durationDays = 0,
+    transactionsLimit = 0,
+    externalId?: string,
+    activateAddress = false,
+    options?: RequestOptions
+  ): Promise<ApiResult> {
+    const params: Params = {
+      address: required('address', address),
+      duration: notNegative('durationDays', durationDays),
+      transactions_limit: notNegative('transactionsLimit', transactionsLimit),
+    };
+    if (activateAddress) {
+      params.activate_address = true;
+    }
+    const data = this.withExternalId(
+      { subscription_id: required('subscriptionId', subscriptionId), params },
+      externalId
+    );
+    return this.request('/v1/subscription/start', data, options);
+  }
+
+  /** Takes the subscription `id`, its `externalId`, or both. */
+  async checkSubscription(
+    id?: string,
+    externalId?: string,
+    options?: RequestOptions
+  ): Promise<ApiResult> {
+    return this.requestById('/v1/subscription/check', id, externalId, options);
+  }
+
+  /**
+   * Takes the subscription `id`, its `externalId`, or both. A subscription with a transactions limit cannot be
+   * stopped and fails with `ErrorCode.CANNOT_STOP_SUBSCRIPTION`.
+   */
+  async stopSubscription(
+    id?: string,
+    externalId?: string,
+    options?: RequestOptions
+  ): Promise<ApiResult> {
+    return this.requestById('/v1/subscription/stop', id, externalId, options);
+  }
+
+  /** Items carry the usage counters `transactions_used`, `energy_used` and `total_price` instead of `params`. */
+  async getSubscriptionHistory(
+    page = 1,
+    perPage = 10,
+    status?: string,
+    options?: RequestOptions
+  ): Promise<ApiResult> {
+    const data: Params = { page: atLeast(page, 1, 1), per_page: atLeast(perPage, 1, 10) };
+    if (present(status)) {
+      data.status = status;
+    }
+    return this.request('/v1/subscriptions/history', data, options);
+  }
+
   private async createTransaction(
     service: string,
     address: string,
@@ -432,6 +502,25 @@ export class TronZapClient {
       this.withExternalId({ service, params }, externalId),
       options
     );
+  }
+
+  private async requestById(
+    endpoint: string,
+    id: string | undefined,
+    externalId: string | undefined,
+    options: RequestOptions | undefined
+  ): Promise<ApiResult> {
+    const data: Params = {};
+    if (present(id)) {
+      data.id = id;
+    }
+    if (present(externalId)) {
+      data.external_id = externalId;
+    }
+    if (Object.keys(data).length === 0) {
+      throw new InvalidRequestError('id or externalId is required');
+    }
+    return this.request(endpoint, data, options);
   }
 
   private withExternalId(data: Params, externalId: string | undefined): Params {

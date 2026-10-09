@@ -143,10 +143,39 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 - Создание и отслеживание AML-проверок
 - Проверка статуса транзакций
 - Получение информации о прямой подзарядке
+- Список планов подписок, запуск, проверка и остановка подписок, история подписок
 
 ## Требования
 
 - Node.js 20 или выше, Bun 1.x или Deno 2.x
+
+## Подписки
+
+Подписка обеспечивает адрес энергией для каждой транзакции, пока её не остановят или не закончатся её дни или транзакции. Выберите план из `getSubscriptions()` — объекта с планами по ключам в порядке API — и передайте его ключ, например `'unlimited_energy'`, а не числовой `id` плана. Запуск подписки списывает начальную цену плана.
+
+```typescript
+const plans = await client.getSubscriptions();
+for (const [subscriptionId, plan] of Object.entries(plans)) {
+  console.log(subscriptionId, plan.initial_price, plan.price);
+}
+
+const subscription = await client.startSubscription(
+  'unlimited_energy',
+  'TRON_WALLET_ADDRESS',
+  30, // 0 — без ограничения по времени
+  0,  // 0 — без ограничения
+  'subscription-42' // внешний ID (опционально)
+);
+
+await client.checkSubscription(undefined, 'subscription-42');
+await client.stopSubscription(subscription.id);
+
+const history = await client.getSubscriptionHistory(1, 10, 'active');
+```
+
+`durationDays` (в днях, в отличие от часов у транзакций) и `transactionsLimit` по умолчанию равны 0, что означает отсутствие ограничения. `checkSubscription` и `stopSubscription` принимают `id` подписки, её `externalId` или оба, как `checkTransaction`. Пагинация истории по умолчанию — страница 1 по 10 элементов.
+
+Запуск, проверка и остановка возвращают подписку с её `params`, а элементы истории вместо них содержат счётчики использования `transactions_used`, `energy_used` и `total_price`. Подписку с лимитом транзакций остановить нельзя (`ErrorCode.CANNOT_STOP_SUBSCRIPTION`).
 
 ## Обработка ошибок
 
@@ -239,11 +268,11 @@ try {
 | 2   | `INVALID_SERVICE_OR_PARAMS`   | Неверный сервис или параметры |
 | 5   | `WALLET_NOT_FOUND`            | Внутренний кошелёк не найден. Обратитесь в поддержку. |
 | 6   | `INSUFFICIENT_FUNDS`          | Недостаточно средств |
-| 10  | `INVALID_TRON_ADDRESS`        | Неверный адрес TRON |
+| 10  | `INVALID_TRON_ADDRESS`        | Неверный адрес TRON, или у адреса уже есть активная подписка |
 | 11  | `INVALID_ENERGY_AMOUNT`       | Неверное количество энергии |
 | 12  | `INVALID_DURATION`            | Неверная длительность |
 | 20  | `TRANSACTION_NOT_FOUND`       | Транзакция/подписка не найдена |
-| 21  | `CANNOT_STOP_SUBSCRIPTION`    | Невозможно остановить подписку |
+| 21  | `CANNOT_STOP_SUBSCRIPTION`    | Невозможно остановить подписку, например, у неё есть лимит транзакций |
 | 24  | `ADDRESS_NOT_ACTIVATED`       | Адрес не активирован |
 | 25  | `ADDRESS_ALREADY_ACTIVATED`   | Адрес уже активирован |
 | 30  | `AML_CHECK_NOT_FOUND`         | AML-проверка не найдена |

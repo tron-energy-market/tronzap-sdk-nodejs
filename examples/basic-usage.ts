@@ -9,12 +9,16 @@
  *     export TRONZAP_TO_ADDRESS=TRON_ADDRESS           # optional, with FROM_ADDRESS
  *     export TRONZAP_TRANSACTION_ID=id                 # optional
  *     export TRONZAP_AML_CHECK_ID=id                   # optional
+ *     export TRONZAP_SUBSCRIPTION_ID=id                # optional
  *     npm install
  *     npm run example
  *
  * Setting TRONZAP_ALLOW_PURCHASES=1 additionally exercises the endpoints that create transactions and AML checks.
  * Those DEBIT THE ACCOUNT BALANCE. It is meant for verifying an integration against a development environment, and
  * it also needs TRONZAP_ADDRESS.
+ *
+ * Setting TRONZAP_SUBSCRIPTION_PLAN=unlimited_energy as well starts a one-day subscription to that plan for
+ * TRONZAP_ADDRESS and stops it straight away. Starting one CHARGES THE PLAN'S INITIAL PRICE.
  */
 
 import { ApiError, ErrorCode, TronZapClient, TronZapError } from '../src';
@@ -39,6 +43,14 @@ function rows(data: unknown, key: string): unknown[] {
   const value: unknown =
     typeof data === 'object' && data !== null ? (data as Record<string, unknown>)[key] : undefined;
   return Array.isArray(value) ? value.filter(row => typeof row === 'object' && row !== null) : [];
+}
+
+function printSubscription(subscription: unknown): void {
+  console.log(
+    `  ${field(subscription, 'id')} ${field(subscription, 'subscription_id')} ${field(subscription, 'status')}, ` +
+      `address ${field(subscription, 'address')}, created ${field(subscription, 'created_at')}, ` +
+      `expires ${field(subscription, 'expire_at')}, stopped ${field(subscription, 'stopped_at')}`
+  );
 }
 
 function printTransaction(transaction: unknown): void {
@@ -143,6 +155,32 @@ async function main(): Promise<number> {
     );
   });
 
+  await step('getSubscriptions', async () => {
+    const plans = await client.getSubscriptions();
+    for (const [subscriptionId, plan] of Object.entries(plans)) {
+      console.log(
+        `  ${subscriptionId} (${field(plan, 'name')}): activation ${field(plan, 'activation_fee')}, ` +
+          `initial ${field(plan, 'initial_price')}, ${field(plan, 'price')} per transaction, ` +
+          `limit ${field(plan, 'transactions_limit')} transactions, ${field(plan, 'duration_days')} days`
+      );
+    }
+  });
+
+  await step('getSubscriptionHistory', async () => {
+    const history: unknown = await client.getSubscriptionHistory(1, 3);
+    console.log(
+      `  page ${field(history, 'page')}, ${String(rows(history, 'items').length)} of ` +
+        `${field(history, 'total')} subscription(s)`
+    );
+    for (const item of rows(history, 'items')) {
+      console.log(
+        `  ${field(item, 'id')} ${field(item, 'subscription_id')} ${field(item, 'status')}, ` +
+          `used ${field(item, 'transactions_used')}, energy ${field(item, 'energy_used')}, ` +
+          `charged ${field(item, 'total_price')}, expires ${field(item, 'expire_at')}`
+      );
+    }
+  });
+
   const address = env('TRONZAP_ADDRESS');
 
   await optionalStep('getAddressInfo', address, async value => {
@@ -184,6 +222,10 @@ async function main(): Promise<number> {
     const check: unknown = await client.checkAmlStatus(value);
     const risk = field(check, 'risk_score');
     console.log(`  ${field(check, 'status')}, risk ${risk === '-' ? 'not scored yet' : risk}`);
+  });
+
+  await optionalStep('checkSubscription', env('TRONZAP_SUBSCRIPTION_ID'), async value => {
+    printSubscription(await client.checkSubscription(value));
   });
 
   if (env('TRONZAP_ALLOW_PURCHASES') !== '1') {
@@ -235,6 +277,27 @@ async function main(): Promise<number> {
       const check: unknown = await client.createAmlCheck('address', 'TRX', address);
       console.log(`  AML check ${field(check, 'id')} is ${field(check, 'status')}`);
     });
+
+    await optionalStep(
+      'startSubscription, checkSubscription, stopSubscription',
+      env('TRONZAP_SUBSCRIPTION_PLAN'),
+      async plan => {
+        const started: unknown = await client.startSubscription(
+          plan,
+          address,
+          1,
+          0,
+          `${runId}-subscription`
+        );
+        printSubscription(started);
+        const id = field(started, 'id');
+        try {
+          printSubscription(await client.checkSubscription(id));
+        } finally {
+          printSubscription(await client.stopSubscription(id));
+        }
+      }
+    );
   }
 
   if (failed.length > 0) {

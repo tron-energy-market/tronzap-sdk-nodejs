@@ -145,10 +145,39 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 - Create and track AML checks
 - Check transaction status
 - Get direct recharge information
+- List subscription plans, start, check and stop subscriptions, subscription history
 
 ## Requirements
 
 - Node.js 20 or higher, Bun 1.x or Deno 2.x
+
+## Subscriptions
+
+A subscription keeps an address supplied with energy for every transaction until it is stopped or runs out of days or transactions. Pick a plan from `getSubscriptions()`, an object keyed by plan in the API's order, and pass its key, such as `'unlimited_energy'`, not the plan's numeric `id`. Starting a subscription charges the plan's initial price.
+
+```typescript
+const plans = await client.getSubscriptions();
+for (const [subscriptionId, plan] of Object.entries(plans)) {
+  console.log(subscriptionId, plan.initial_price, plan.price);
+}
+
+const subscription = await client.startSubscription(
+  'unlimited_energy',
+  'TRON_WALLET_ADDRESS',
+  30, // 0 for no time limit
+  0,  // 0 for no limit
+  'subscription-42' // optional external ID
+);
+
+await client.checkSubscription(undefined, 'subscription-42');
+await client.stopSubscription(subscription.id);
+
+const history = await client.getSubscriptionHistory(1, 10, 'active');
+```
+
+`durationDays` (in days, unlike the hours of transactions) and `transactionsLimit` default to 0, which means no limit. `checkSubscription` and `stopSubscription` take the subscription `id`, its `externalId`, or both, like `checkTransaction`. History paging defaults to page 1 with 10 items.
+
+Start, check and stop return the subscription with its `params`; the history items carry the usage counters `transactions_used`, `energy_used` and `total_price` instead. A subscription with a transactions limit cannot be stopped (`ErrorCode.CANNOT_STOP_SUBSCRIPTION`).
 
 ## Error Handling
 
@@ -241,11 +270,11 @@ try {
 | 2    | `INVALID_SERVICE_OR_PARAMS`    | Invalid service or parameters |
 | 5    | `WALLET_NOT_FOUND`             | Internal wallet not found. Contact support. |
 | 6    | `INSUFFICIENT_FUNDS`           | Insufficient funds |
-| 10   | `INVALID_TRON_ADDRESS`         | Invalid TRON address |
+| 10   | `INVALID_TRON_ADDRESS`         | Invalid TRON address, or the address already has an active subscription |
 | 11   | `INVALID_ENERGY_AMOUNT`        | Invalid energy amount |
 | 12   | `INVALID_DURATION`             | Invalid duration |
 | 20   | `TRANSACTION_NOT_FOUND`        | Transaction/subscription not found |
-| 21   | `CANNOT_STOP_SUBSCRIPTION`     | Cannot stop subscription |
+| 21   | `CANNOT_STOP_SUBSCRIPTION`     | Cannot stop subscription, e.g. it has a transactions limit |
 | 24   | `ADDRESS_NOT_ACTIVATED`        | Address not activated |
 | 25   | `ADDRESS_ALREADY_ACTIVATED`    | Address already activated |
 | 30   | `AML_CHECK_NOT_FOUND`          | AML check not found |
