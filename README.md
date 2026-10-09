@@ -151,6 +151,17 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 
 - Node.js 20 or higher, Bun 1.x or Deno 2.x
 
+## AML Checks
+
+```typescript
+const addressCheck = await client.createAmlCheck('address', 'TRX', 'TRON_WALLET_ADDRESS');
+
+// or a transaction hash: network, recipient address, hash and direction
+const hashCheck = await client.createAmlCheck('hash', 'BTC', 'BTC_RECIPIENT_ADDRESS', 'TX_HASH', 'withdrawal');
+```
+
+For a hash check, `address` is the recipient address of the transaction, where the funds were received, and the direction says which side you are on: `'deposit'` if the funds were sent to your address (`address` is your address), `'withdrawal'` if you sent them (`address` is the external recipient's address). The risk is scored for the counterparty: the sender of a deposit, the recipient of a withdrawal. When the direction is omitted, the SDK sends `'deposit'`.
+
 ## Subscriptions
 
 A subscription keeps an address supplied with energy for every transaction until it is stopped or runs out of days or transactions. Pick a plan from `getSubscriptions()`, an object keyed by plan in the API's order, and pass its key, such as `'unlimited_energy'`, not the plan's numeric `id`. Starting a subscription charges the plan's initial price.

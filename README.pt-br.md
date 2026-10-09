@@ -149,6 +149,17 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 
 - Node.js 20 ou superior, Bun 1.x ou Deno 2.x
 
+## Verificações AML
+
+```typescript
+const addressCheck = await client.createAmlCheck('address', 'TRX', 'ENDERECO_CARTEIRA_TRON');
+
+// ou um hash de transação: rede, endereço do destinatário, hash e direção
+const hashCheck = await client.createAmlCheck('hash', 'BTC', 'ENDERECO_DESTINATARIO_BTC', 'HASH_TX', 'withdrawal');
+```
+
+Em uma verificação por hash, `address` é o endereço do destinatário da transação, onde os fundos foram recebidos, e `direction` indica de que lado você está: `'deposit'` se os fundos chegaram ao seu endereço (`address` é o seu endereço), `'withdrawal'` se foi você quem enviou (`address` é o endereço do destinatário externo). O risco é calculado para a contraparte: o remetente em um deposit, o destinatário em um withdrawal. Se `direction` for omitida, o SDK envia `'deposit'`.
+
 ## Assinaturas
 
 Uma assinatura mantém um endereço abastecido de energia para cada transação até ser parada ou esgotar seus dias ou transações. Escolha um plano de `getSubscriptions()`, um objeto com um plano por chave na ordem da API, e passe a sua chave, como `'unlimited_energy'`, não o `id` numérico do plano. Iniciar uma assinatura cobra o preço inicial do plano.

@@ -149,6 +149,17 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 
 - Node.js 20 или выше, Bun 1.x или Deno 2.x
 
+## AML-проверки
+
+```typescript
+const addressCheck = await client.createAmlCheck('address', 'TRX', 'АДРЕС_КОШЕЛЬКА_TRON');
+
+// или hash транзакции: сеть, адрес получателя, hash и direction
+const hashCheck = await client.createAmlCheck('hash', 'BTC', 'АДРЕС_ПОЛУЧАТЕЛЯ_BTC', 'HASH_ТРАНЗАКЦИИ', 'withdrawal');
+```
+
+Для проверки по hash `address` — это адрес получателя средств в транзакции, а `direction` указывает, на какой стороне транзакции вы: `'deposit'`, если средства пришли на ваш адрес (`address` — ваш адрес), `'withdrawal'`, если их отправили вы (`address` — адрес внешнего получателя). Риск оценивается для контрагента: для deposit — для отправителя, для withdrawal — для получателя. Если `direction` не указан, SDK отправляет `'deposit'`.
+
 ## Подписки
 
 Подписка обеспечивает адрес энергией для каждой транзакции, пока её не остановят или не закончатся её дни или транзакции. Выберите план из `getSubscriptions()` — объекта с планами по ключам в порядке API — и передайте его ключ, например `'unlimited_energy'`, а не числовой `id` плана. Запуск подписки списывает начальную цену плана.

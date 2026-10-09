@@ -26,6 +26,11 @@ Upgrading from 1.0.4 to 1.5.0 brings their changes as well.
 
 - Documented error codes: 10 `INVALID_TRON_ADDRESS` also means the address already has an active subscription, and
   21 `CANNOT_STOP_SUBSCRIPTION` is reported, e.g., for a subscription with a transactions limit.
+- `createAmlCheck` with type `hash` and no `direction` now sends `direction: 'deposit'` explicitly instead of leaving
+  it to the API. An address check still sends `direction` only when one is given.
+- Documented the AML check fields: for a hash check, `address` is the recipient address of the transaction, and
+  `direction` is `deposit` when the funds were sent to your address or `withdrawal` when you sent them; the risk is
+  scored for the counterparty.
 - `examples/basic-usage.ts` reads the API's `amount`, `min_amount` and `max_amount` fields instead of the deprecated
   `energy`, `min_energy` and `max_energy`.
 

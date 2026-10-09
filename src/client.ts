@@ -350,7 +350,14 @@ export class TronZapClient {
     return this.request('/v1/transaction/new', data, options);
   }
 
-  /** `type` is `address` or `hash`; `hash` and `direction` apply to a hash check. */
+  /**
+   * `type` is `address` or `hash`. For an address check, `address` is the address to screen. For a hash check,
+   * `address` is the recipient address of the transaction `hash`, where the funds were received, and `direction`
+   * says which side you are on: `deposit` if the funds were sent to your address (`address` is your address),
+   * `withdrawal` if you sent them (`address` is the external recipient's address). The risk is scored for the
+   * counterparty: the sender of a deposit, the recipient of a withdrawal. A hash check without a `direction` sends
+   * `deposit`.
+   */
   async createAmlCheck(
     type: string,
     network: string,
@@ -369,6 +376,8 @@ export class TronZapClient {
     }
     if (present(direction)) {
       data.direction = direction;
+    } else if (type === 'hash') {
+      data.direction = 'deposit';
     }
     return this.request('/v1/aml-checks/new', data, options);
   }

@@ -171,7 +171,19 @@ const requests: [string, Call, string, Record<string, unknown>][] = [
   ],
   [
     'createAmlCheck hash',
-    c => c.createAmlCheck('hash', 'TRX', ADDRESS, 'abc123', 'deposit'),
+    c => c.createAmlCheck('hash', 'TRX', ADDRESS, 'abc123', 'withdrawal'),
+    '/v1/aml-checks/new',
+    { type: 'hash', network: 'TRX', address: ADDRESS, hash: 'abc123', direction: 'withdrawal' },
+  ],
+  [
+    'createAmlCheck hash without direction',
+    c => c.createAmlCheck('hash', 'TRX', ADDRESS, 'abc123'),
+    '/v1/aml-checks/new',
+    { type: 'hash', network: 'TRX', address: ADDRESS, hash: 'abc123', direction: 'deposit' },
+  ],
+  [
+    'createAmlCheck hash with empty direction',
+    c => c.createAmlCheck('hash', 'TRX', ADDRESS, 'abc123', ''),
     '/v1/aml-checks/new',
     { type: 'hash', network: 'TRX', address: ADDRESS, hash: 'abc123', direction: 'deposit' },
   ],
