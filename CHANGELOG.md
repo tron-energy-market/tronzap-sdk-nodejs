@@ -9,6 +9,8 @@ Upgrading from 1.0.4 to 1.5.0 brings their changes as well.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-09
+
 ### Added
 
 - Subscriptions: `getSubscriptions()`, `startSubscription(subscriptionId, address, durationDays, transactionsLimit,
