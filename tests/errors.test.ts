@@ -128,6 +128,75 @@ describe('API errors', () => {
   );
 });
 
+describe('data sent with an error', () => {
+  it('keeps the result', async () => {
+    const rejected = [{ row: 1, address: 'abc', reason: 'invalid_address' }];
+    server.respond(200, { code: 94, error: 'No valid items', result: { rejected } });
+
+    const error = await failure(client.getBalance());
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ code: ErrorCode.BULK_NO_VALID_ITEMS, result: { rejected } });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['a string', 'text'],
+    ['a number', 1],
+  ])('has no result when it is %s', async (_name, result) => {
+    server.respond(400, { code: 6, error: 'Insufficient funds', result });
+
+    const error = await failure(client.getBalance());
+
+    expect(error).toMatchObject({ result: null, retryAfter: null });
+  });
+
+  it('a rate limit from the API is an API error with Retry-After from the header', async () => {
+    server.respond(
+      429,
+      { code: 429, error: 'Too Many Requests' },
+      { headers: { 'Retry-After': '17' } }
+    );
+
+    const error = await failure(client.getBalance());
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ code: ErrorCode.RATE_LIMITED, statusCode: 429, retryAfter: 17 });
+  });
+
+  it('takes retry_after from the body without the header', async () => {
+    server.respond(429, { code: 429, key: 'rate_limit_exceeded', retry_after: 42 });
+
+    expect(await failure(client.getBalance())).toMatchObject({ retryAfter: 42 });
+  });
+
+  it('reads Retry-After as an HTTP date', async () => {
+    const date = new Date(Date.now() + 120_000).toUTCString();
+    server.respond(429, { code: 429 }, { headers: { 'Retry-After': date } });
+
+    const { retryAfter } = (await failure(client.getBalance())) as ApiError;
+
+    expect(retryAfter).toBeGreaterThanOrEqual(110);
+    expect(retryAfter).toBeLessThanOrEqual(120);
+  });
+
+  it('ignores an unreadable Retry-After', async () => {
+    server.respond(429, { code: 429 }, { headers: { 'Retry-After': 'soon' } });
+
+    expect(await failure(client.getBalance())).toMatchObject({ retryAfter: null });
+  });
+
+  it('an HTTP 429 without an API body keeps Retry-After', async () => {
+    server.respond(429, '<html>slow down</html>', { headers: { 'Retry-After': '5' } });
+
+    const error = await failure(client.getBalance());
+
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect(error).toMatchObject({ retryAfter: 5 });
+  });
+});
+
 describe('HTTP errors', () => {
   it.each([
     [401, UnauthorizedError],
@@ -367,6 +436,11 @@ describe('timeout and cancellation', () => {
       client.getAmlServices({ signal }),
       client.getAmlHistory(1, 10, undefined, { signal }),
       client.getDirectRechargeInfo({ signal }),
+      client.bulkCalculate([{ address: 'T', amount: 65000 }], 1, { signal }),
+      client.bulkCreate('calc', undefined, false, undefined, undefined, { signal }),
+      client.bulkCheck('order', undefined, { signal }),
+      client.bulkHistory(1, 10, { signal }),
+      client.bulkReport('order', undefined, undefined, { signal }),
       client.request('/v1/balance', {}, { signal }),
     ];
 
@@ -437,7 +511,14 @@ describe('types', () => {
   });
 
   it('API error defaults', () => {
-    expect(new ApiError(6, 'x')).toMatchObject({ errorKey: null, requestId: null, statusCode: 0 });
+    expect(new ApiError(6, 'x')).toMatchObject({
+      errorKey: null,
+      requestId: null,
+      statusCode: 0,
+      result: null,
+      retryAfter: null,
+    });
+    expect(new RateLimitError('x')).toMatchObject({ retryAfter: null });
   });
 
   it('error codes', () => {
@@ -458,6 +539,14 @@ describe('types', () => {
       AML_CHECK_NOT_FOUND: 30,
       SERVICE_NOT_AVAILABLE: 35,
       INVALID_BANDWIDTH_AMOUNT: 50,
+      BULK_NOT_FOUND: 90,
+      BULK_EXPIRED: 91,
+      BULK_PRICE_CHANGED: 92,
+      BULK_TOO_MANY_ITEMS: 93,
+      BULK_NO_VALID_ITEMS: 94,
+      BULK_RESOURCE_NOT_SUPPORTED: 95,
+      PAYLOAD_TOO_LARGE: 96,
+      RATE_LIMITED: 429,
       INTERNAL_SERVER_ERROR: 500,
       UNKNOWN_ERROR: 999,
     });

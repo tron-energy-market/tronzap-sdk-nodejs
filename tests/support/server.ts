@@ -37,6 +37,7 @@ interface Reply {
   body: string;
   delayMs: number;
   bodyDelayMs: number;
+  headers: Record<string, string>;
 }
 
 export class ApiServer {
@@ -72,7 +73,13 @@ export class ApiServer {
   }
 
   private static success(result: unknown): Reply {
-    return { status: 200, body: JSON.stringify({ code: 0, result }), delayMs: 0, bodyDelayMs: 0 };
+    return {
+      status: 200,
+      body: JSON.stringify({ code: 0, result }),
+      delayMs: 0,
+      bodyDelayMs: 0,
+      headers: {},
+    };
   }
 
   ok(result: unknown): void {
@@ -82,13 +89,14 @@ export class ApiServer {
   respond(
     status: number,
     body: unknown,
-    options: { delayMs?: number; bodyDelayMs?: number } = {}
+    options: { delayMs?: number; bodyDelayMs?: number; headers?: Record<string, string> } = {}
   ): void {
     this.reply = {
       status,
       body: typeof body === 'string' ? body : JSON.stringify(body),
       delayMs: options.delayMs ?? 0,
       bodyDelayMs: options.bodyDelayMs ?? 0,
+      headers: options.headers ?? {},
     };
   }
 
@@ -128,9 +136,9 @@ export class ApiServer {
           Buffer.concat(chunks)
         )
       );
-      const { status, body, delayMs, bodyDelayMs } = this.reply;
+      const { status, body, delayMs, bodyDelayMs, headers } = this.reply;
       setTimeout(() => {
-        response.writeHead(status, { 'Content-Type': 'application/json' });
+        response.writeHead(status, { 'Content-Type': 'application/json', ...headers });
         if (bodyDelayMs === 0) {
           response.end(body);
           return;

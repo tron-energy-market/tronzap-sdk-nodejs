@@ -144,6 +144,7 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 - Проверка статуса транзакций
 - Получение информации о прямой подзарядке
 - Список планов подписок, запуск, проверка и остановка подписок, история подписок
+- Массовые заказы энергии до 10 000 адресов, с CSV-отчётом и проверкой подписи вебхука
 
 ## Требования
 
@@ -188,20 +189,73 @@ const history = await client.getSubscriptionHistory(1, 10, 'active');
 
 Запуск, проверка и остановка возвращают подписку с её `params`, а элементы истории вместо них содержат счётчики использования `transactions_used`, `energy_used` и `total_price`. Подписку с лимитом транзакций остановить нельзя (`ErrorCode.CANNOT_STOP_SUBSCRIPTION`).
 
+## Массовые заказы
+
+Покупка энергии на 10 000 адресов одним заказом. `bulkCalculate` проверяет и рассчитывает строки и возвращает расчёт, действительный 10 минут; ничего не списывается. Некорректные строки не валят запрос: они возвращаются в `rejected` с номером строки. `bulkCreate` запускает заказ; каждый адрес списывается в момент обработки, неактивированные адреса пропускаются без списания.
+
+Если цена изменилась после расчёта, `bulkCreate` не запускает заказ и падает с `ApiError` с кодом `ErrorCode.BULK_PRICE_CHANGED`. Новый расчёт — в `error.result`: подтвердите новую сумму и запустите его по `id`.
+
+```typescript
+import { ApiError, ErrorCode } from 'tronzap-sdk';
+
+const items = [
+  { address: 'TRON_WALLET_ADDRESS_1', amount: 65000 },
+  { address: 'TRON_WALLET_ADDRESS_2', amount: 131000 },
+];
+
+let calculation;
+try {
+  calculation = await client.bulkCalculate(items, 1);
+} catch (error) {
+  if (error instanceof ApiError && error.code === ErrorCode.BULK_NO_VALID_ITEMS) {
+    console.log(error.result.rejected); // Все строки отклонены
+  }
+  throw error;
+}
+
+console.log(`Итого: ${calculation.total_amount} TRX, отклонено: ${calculation.rejected_count}`);
+
+let order;
+try {
+  order = await client.bulkCreate(calculation.id, 'order-42', false, undefined, 'https://example.com/tronzap/bulk');
+} catch (error) {
+  if (!(error instanceof ApiError) || error.code !== ErrorCode.BULK_PRICE_CHANGED) {
+    throw error;
+  }
+  calculation = error.result; // Новый расчёт: подтвердите новую сумму и запустите его
+  order = await client.bulkCreate(calculation.id, 'order-42');
+}
+
+order = await client.bulkCheck(undefined, 'order-42'); // Опрашивайте до completed, partial или failed
+
+const csv = await client.bulkReport(order.id); // row,address,amount,status,reason,charged,transaction_id
+```
+
+С `webhookUrl` API один раз отправит на него `POST`, когда заказ станет финальным. Проверьте заголовок `X-Signature` по сырому телу, прежде чем доверять запросу, например в Express:
+
+```typescript
+app.post('/tronzap/bulk', express.raw({ type: '*/*' }), (req, res) => {
+  if (!client.verifyWebhookSignature(req.body, req.get('X-Signature') ?? '')) {
+    return res.sendStatus(403);
+  }
+  res.sendStatus(200);
+});
+```
+
 ## Обработка ошибок
 
 SDK использует иерархию классов ошибок для точной обработки:
 
 ```
 TronZapError
-├── ApiError             — ошибки API (code != 0 в ответе)
+├── ApiError             — ошибки API (code != 0 в ответе), включая HTTP 429 от API
 ├── InvalidRequestError  — неверные аргументы, отклонены до отправки
 ├── NetworkError         — сетевые ошибки
 │   ├── ConnectionError  — невозможно подключиться к серверу
 │   ├── TimeoutError     — превышено время ожидания
 │   └── SslError         — ошибки SSL/TLS
 └── HttpError            — HTTP-ответы с кодом не 2xx
-    ├── RateLimitError   — HTTP 429 Too Many Requests
+    ├── RateLimitError   — HTTP 429 без ответа API, например от прокси
     ├── UnauthorizedError — HTTP 401/403
     └── ServerError      — HTTP 5xx
 ```
@@ -243,6 +297,14 @@ try {
 
     // Укажите его при обращении в поддержку
     console.error(`ID запроса: ${error.requestId ?? '-'}`);
+
+    // Данные, которые API вернул вместе с ошибкой, например новый расчёт для BULK_PRICE_CHANGED
+    const { result } = error;
+
+    if (error.code === ErrorCode.RATE_LIMITED) {
+      // Сколько секунд ждать, если API это передал
+      await new Promise(resolve => setTimeout(resolve, (error.retryAfter ?? 60) * 1000));
+    }
 
     if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
       console.error('Проверьте формат адреса TRON.');
@@ -289,6 +351,14 @@ try {
 | 30  | `AML_CHECK_NOT_FOUND`         | AML-проверка не найдена |
 | 35  | `SERVICE_NOT_AVAILABLE`       | Сервис недоступен |
 | 50  | `INVALID_BANDWIDTH_AMOUNT`    | Неверное количество bandwidth |
+| 90 | `BULK_NOT_FOUND` | Массовый заказ не найден |
+| 91 | `BULK_EXPIRED` | Расчёт истёк, рассчитайте заново |
+| 92 | `BULK_PRICE_CHANGED` | Цена изменилась; новый расчёт в `error.result` |
+| 93 | `BULK_TOO_MANY_ITEMS` | Больше 10 000 строк |
+| 94 | `BULK_NO_VALID_ITEMS` | Нет корректных строк; они в `error.result.rejected` |
+| 95 | `BULK_RESOURCE_NOT_SUPPORTED` | Массово можно заказать только энергию |
+| 96 | `PAYLOAD_TOO_LARGE` | Слишком большое тело запроса (HTTP 413) |
+| 429| `RATE_LIMITED` | Слишком много запросов; подождите `error.retryAfter` секунд, если указано |
 | 500 | `INTERNAL_SERVER_ERROR`       | Внутренняя ошибка сервера — обратитесь в поддержку |
 
 ## Разработка

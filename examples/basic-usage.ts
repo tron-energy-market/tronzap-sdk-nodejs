@@ -10,10 +10,12 @@
  *     export TRONZAP_TRANSACTION_ID=id                 # optional
  *     export TRONZAP_AML_CHECK_ID=id                   # optional
  *     export TRONZAP_SUBSCRIPTION_ID=id                # optional
+ *     export TRONZAP_BULK_ID=id                        # optional
  *     npm install
  *     npm run example
  *
- * Setting TRONZAP_ALLOW_PURCHASES=1 additionally exercises the endpoints that create transactions and AML checks.
+ * Setting TRONZAP_ALLOW_PURCHASES=1 additionally exercises the endpoints that create transactions, AML checks and a
+ * one-address bulk order.
  * Those DEBIT THE ACCOUNT BALANCE. It is meant for verifying an integration against a development environment, and
  * it also needs TRONZAP_ADDRESS.
  *
@@ -51,6 +53,19 @@ function printSubscription(subscription: unknown): void {
       `address ${field(subscription, 'address')}, created ${field(subscription, 'created_at')}, ` +
       `expires ${field(subscription, 'expire_at')}, stopped ${field(subscription, 'stopped_at')}`
   );
+}
+
+function printBulkOrder(order: unknown): void {
+  console.log(
+    `  ${field(order, 'id')} ${field(order, 'status')}: ${field(order, 'processed')} of ` +
+      `${field(order, 'total')} processed, ${field(order, 'delivered')} delivered, ` +
+      `${field(order, 'skipped')} skipped, charged ${field(order, 'charged_amount')} of ` +
+      field(order, 'total_amount')
+  );
+}
+
+function printReport(csv: string): void {
+  console.log(`  ${csv.trim().replaceAll('\n', '\n  ')}`);
 }
 
 function printTransaction(transaction: unknown): void {
@@ -181,6 +196,15 @@ async function main(): Promise<number> {
     }
   });
 
+  await step('bulkHistory', async () => {
+    const history: unknown = await client.bulkHistory(1, 3);
+    console.log(
+      `  page ${field(history, 'page')}, ${String(rows(history, 'items').length)} of ` +
+        `${field(history, 'total')} order(s)`
+    );
+    rows(history, 'items').forEach(printBulkOrder);
+  });
+
   const address = env('TRONZAP_ADDRESS');
 
   await optionalStep('getAddressInfo', address, async value => {
@@ -226,6 +250,25 @@ async function main(): Promise<number> {
 
   await optionalStep('checkSubscription', env('TRONZAP_SUBSCRIPTION_ID'), async value => {
     printSubscription(await client.checkSubscription(value));
+  });
+
+  await optionalStep('bulkCalculate', address, async value => {
+    const calculation: unknown = await client.bulkCalculate([
+      { address: value, amount: ENERGY },
+      { address: 'not-an-address', amount: ENERGY },
+    ]);
+    console.log(
+      `  ${field(calculation, 'id')}: ${field(calculation, 'accepted')} accepted, ` +
+        `total ${field(calculation, 'total_amount')}, expires ${field(calculation, 'expires_at')}`
+    );
+    for (const row of rows(calculation, 'rejected')) {
+      console.log(`  rejected row ${field(row, 'row')}: ${field(row, 'reason')}`);
+    }
+  });
+
+  await optionalStep('bulkCheck, bulkReport', env('TRONZAP_BULK_ID'), async value => {
+    printBulkOrder(await client.bulkCheck(value));
+    printReport(await client.bulkReport(value));
   });
 
   if (env('TRONZAP_ALLOW_PURCHASES') !== '1') {
@@ -276,6 +319,27 @@ async function main(): Promise<number> {
     await step('createAmlCheck', async () => {
       const check: unknown = await client.createAmlCheck('address', 'TRX', address);
       console.log(`  AML check ${field(check, 'id')} is ${field(check, 'status')}`);
+    });
+
+    await step('bulkCreate, bulkCheck, bulkReport', async () => {
+      const externalId = `${runId}-bulk`;
+      const calculation: unknown = await client.bulkCalculate([{ address, amount: ENERGY }]);
+      let order: unknown;
+      try {
+        order = await client.bulkCreate(field(calculation, 'id'), externalId);
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.code !== ErrorCode.BULK_PRICE_CHANGED) {
+          throw error;
+        }
+        console.log(`  price changed, new total ${field(error.result, 'total_amount')}`);
+        order = await client.bulkCreate(field(error.result, 'id'), externalId);
+      }
+      for (let i = 0; i < 10 && field(order, 'status') === 'processing'; i++) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        order = await client.bulkCheck(undefined, externalId);
+      }
+      printBulkOrder(order);
+      printReport(await client.bulkReport(field(order, 'id')));
     });
 
     await optionalStep(

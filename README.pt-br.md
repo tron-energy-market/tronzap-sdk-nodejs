@@ -144,6 +144,7 @@ const quickBalance = await client.getBalance({ timeout: 5_000, signal: controlle
 - Verificar status de transações
 - Obter informações de recarga direta
 - Listar planos de assinatura, iniciar, consultar e parar assinaturas, histórico de assinaturas
+- Pedidos de energia em massa para até 10 000 endereços, com relatório CSV e verificação da assinatura do webhook
 
 ## Requisitos
 
@@ -188,20 +189,73 @@ const history = await client.getSubscriptionHistory(1, 10, 'active');
 
 Iniciar, consultar e parar retornam a assinatura com seus `params`; os itens do histórico trazem em vez disso os contadores de uso `transactions_used`, `energy_used` e `total_price`. Uma assinatura com limite de transações não pode ser parada (`ErrorCode.CANNOT_STOP_SUBSCRIPTION`).
 
+## Pedidos em massa
+
+Compre energia para até 10 000 endereços em um único pedido. `bulkCalculate` valida e calcula as linhas e retorna um cálculo válido por 10 minutos; nada é cobrado. Linhas inválidas não fazem a requisição falhar: elas voltam em `rejected` com o número da linha. `bulkCreate` inicia o pedido; cada endereço é cobrado quando é processado, e endereços não ativados são pulados sem cobrança.
+
+Se o preço mudou desde o cálculo, `bulkCreate` não inicia o pedido e falha com um `ApiError` com o código `ErrorCode.BULK_PRICE_CHANGED`. O novo cálculo está em `error.result`: confirme o novo total e inicie-o pelo `id`.
+
+```typescript
+import { ApiError, ErrorCode } from 'tronzap-sdk';
+
+const items = [
+  { address: 'TRON_WALLET_ADDRESS_1', amount: 65000 },
+  { address: 'TRON_WALLET_ADDRESS_2', amount: 131000 },
+];
+
+let calculation;
+try {
+  calculation = await client.bulkCalculate(items, 1);
+} catch (error) {
+  if (error instanceof ApiError && error.code === ErrorCode.BULK_NO_VALID_ITEMS) {
+    console.log(error.result.rejected); // Todas as linhas foram rejeitadas
+  }
+  throw error;
+}
+
+console.log(`Total: ${calculation.total_amount} TRX, rejeitadas: ${calculation.rejected_count}`);
+
+let order;
+try {
+  order = await client.bulkCreate(calculation.id, 'order-42', false, undefined, 'https://example.com/tronzap/bulk');
+} catch (error) {
+  if (!(error instanceof ApiError) || error.code !== ErrorCode.BULK_PRICE_CHANGED) {
+    throw error;
+  }
+  calculation = error.result; // Novo cálculo: confirme o novo total e inicie-o
+  order = await client.bulkCreate(calculation.id, 'order-42');
+}
+
+order = await client.bulkCheck(undefined, 'order-42'); // Consulte até completed, partial ou failed
+
+const csv = await client.bulkReport(order.id); // row,address,amount,status,reason,charged,transaction_id
+```
+
+Com `webhookUrl`, a API envia um único `POST` quando o pedido se torna final. Verifique o cabeçalho `X-Signature` com o corpo bruto antes de confiar na requisição, por exemplo com Express:
+
+```typescript
+app.post('/tronzap/bulk', express.raw({ type: '*/*' }), (req, res) => {
+  if (!client.verifyWebhookSignature(req.body, req.get('X-Signature') ?? '')) {
+    return res.sendStatus(403);
+  }
+  res.sendStatus(200);
+});
+```
+
 ## Tratamento de Erros
 
 O SDK utiliza uma hierarquia de classes de erro para tratamento preciso:
 
 ```
 TronZapError
-├── ApiError             — erros a nível de API (code != 0 na resposta)
+├── ApiError             — erros a nível de API (code != 0 na resposta), incluindo HTTP 429 da API
 ├── InvalidRequestError  — Argumentos inválidos, rejeitados antes do envio
 ├── NetworkError         — erros de rede/conectividade
 │   ├── ConnectionError  — não foi possível conectar ao servidor
 │   ├── TimeoutError     — tempo de espera esgotado
 │   └── SslError         — erros SSL/TLS
 └── HttpError            — respostas HTTP não 2xx
-    ├── RateLimitError   — HTTP 429 Too Many Requests
+    ├── RateLimitError   — HTTP 429 sem resposta da API, p. ex. de um proxy
     ├── UnauthorizedError — HTTP 401/403
     └── ServerError      — erros HTTP 5xx
 ```
@@ -243,6 +297,14 @@ try {
 
     // Informe-o ao contatar o suporte
     console.error(`ID da requisição: ${error.requestId ?? '-'}`);
+
+    // Dados que a API enviou com o erro, p. ex. o novo cálculo para BULK_PRICE_CHANGED
+    const { result } = error;
+
+    if (error.code === ErrorCode.RATE_LIMITED) {
+      // Segundos de espera, se a API os enviou
+      await new Promise(resolve => setTimeout(resolve, (error.retryAfter ?? 60) * 1000));
+    }
 
     if (error.code === ErrorCode.INVALID_TRON_ADDRESS) {
       console.error('Verifique o formato do endereço TRON.');
@@ -289,6 +351,14 @@ try {
 | 30     | `AML_CHECK_NOT_FOUND`         | Checagem AML não encontrada |
 | 35     | `SERVICE_NOT_AVAILABLE`       | Serviço não disponível |
 | 50     | `INVALID_BANDWIDTH_AMOUNT`    | Quantidade de bandwidth inválida |
+| 90    | `BULK_NOT_FOUND` | Pedido em massa não encontrado |
+| 91    | `BULK_EXPIRED` | O cálculo expirou, calcule novamente |
+| 92    | `BULK_PRICE_CHANGED` | O preço mudou; o novo cálculo está em `error.result` |
+| 93    | `BULK_TOO_MANY_ITEMS` | Mais de 10 000 linhas |
+| 94    | `BULK_NO_VALID_ITEMS` | Nenhuma linha válida; elas estão em `error.result.rejected` |
+| 95    | `BULK_RESOURCE_NOT_SUPPORTED` | Apenas energia pode ser pedida em massa |
+| 96    | `PAYLOAD_TOO_LARGE` | Corpo da requisição grande demais (HTTP 413) |
+| 429   | `RATE_LIMITED` | Requisições demais; aguarde `error.retryAfter` segundos, quando informado |
 | 500    | `INTERNAL_SERVER_ERROR`       | Erro interno do servidor — contate o suporte |
 
 ## Desenvolvimento

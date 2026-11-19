@@ -15,6 +15,12 @@ export interface RequestOptions {
   timeout?: number;
 }
 
+/** A row of a bulk order. */
+export interface BulkItem {
+  address: string;
+  amount: number;
+}
+
 // Results are not typed yet: narrowing `any` would break callers that read fields TypeScript does not know about.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ApiResult = any;
@@ -37,6 +43,19 @@ export enum ErrorCode {
   AML_CHECK_NOT_FOUND = 30,
   SERVICE_NOT_AVAILABLE = 35,
   INVALID_BANDWIDTH_AMOUNT = 50,
+  BULK_NOT_FOUND = 90,
+  /** Calculate again; a calculation is valid for 10 minutes. */
+  BULK_EXPIRED = 91,
+  /** The new calculation is in `ApiError.result`; to start the order, call `bulkCreate` with its `id`. */
+  BULK_PRICE_CHANGED = 92,
+  BULK_TOO_MANY_ITEMS = 93,
+  /** The rejected rows are in `ApiError.result.rejected`. */
+  BULK_NO_VALID_ITEMS = 94,
+  BULK_RESOURCE_NOT_SUPPORTED = 95,
+  /** HTTP 413. */
+  PAYLOAD_TOO_LARGE = 96,
+  /** HTTP 429. Wait `ApiError.retryAfter` seconds, when given. */
+  RATE_LIMITED = 429,
   INTERNAL_SERVER_ERROR = 500,
   UNKNOWN_ERROR = 999,
 }
@@ -56,19 +75,27 @@ export class ApiError extends TronZapError {
   public readonly errorKey: string | null;
   public readonly requestId: string | null;
   public readonly statusCode: number;
+  /** Data the API sent with the error, e.g. the new calculation of `BULK_PRICE_CHANGED`. */
+  public readonly result: ApiResult;
+  /** Seconds to wait before retrying, when the API sent them. */
+  public readonly retryAfter: number | null;
 
   constructor(
     code: number,
     message: string,
     errorKey: string | null = null,
     requestId: string | null = null,
-    statusCode = 0
+    statusCode = 0,
+    result: unknown = null,
+    retryAfter: number | null = null
   ) {
     super(code, message);
     this.name = 'ApiError';
     this.errorKey = errorKey;
     this.requestId = requestId;
     this.statusCode = statusCode;
+    this.result = result;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -135,10 +162,15 @@ export class ServerError extends HttpError {
   }
 }
 
+/** HTTP 429 without an API body, e.g. from a proxy. The API's own rate limit is an `ApiError` with `RATE_LIMITED`. */
 export class RateLimitError extends HttpError {
-  constructor(message: string, responseBody?: string) {
+  /** Seconds to wait before retrying, from the `Retry-After` header. */
+  public readonly retryAfter: number | null;
+
+  constructor(message: string, responseBody?: string, retryAfter: number | null = null) {
     super(429, message, responseBody);
     this.name = 'RateLimitError';
+    this.retryAfter = retryAfter;
   }
 }
 

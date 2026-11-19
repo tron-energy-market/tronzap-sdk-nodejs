@@ -1,7 +1,8 @@
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import {
   ApiError,
   type ApiResult,
+  type BulkItem,
   ConnectionError,
   HttpError,
   InvalidRequestError,
@@ -39,6 +40,13 @@ const CONNECTION_MESSAGE = /tcp connect error|dns error|connection (refused|rese
 
 type Params = Record<string, unknown>;
 
+interface RawResponse {
+  status: number;
+  ok: boolean;
+  text: string;
+  headers: Headers;
+}
+
 function causes(error: Error): { codes: string[]; messages: string[]; deepest: Error } {
   const codes: string[] = [];
   const messages: string[] = [];
@@ -75,9 +83,24 @@ function networkError(error: unknown): NetworkError {
   return new NetworkError(message, original);
 }
 
-function httpError(status: number, body: string): HttpError {
+function retryAfterOf(headers: Headers, fields: Params): number | null {
+  const header = headers.get('retry-after')?.trim() ?? '';
+  if (/^\d+$/.test(header)) {
+    return Number(header);
+  }
+  if (header !== '') {
+    const time = Date.parse(header);
+    if (!Number.isNaN(time)) {
+      return Math.max(0, Math.round((time - Date.now()) / 1000));
+    }
+  }
+  const body = fields.retry_after;
+  return Number.isInteger(body) && (body as number) >= 0 ? (body as number) : null;
+}
+
+function httpError(status: number, body: string, retryAfter: number | null): HttpError {
   if (status === 429) {
-    return new RateLimitError('Too many requests', body);
+    return new RateLimitError('Too many requests', body, retryAfter);
   }
   if (status === 401 || status === 403) {
     return new UnauthorizedError(status, 'Unauthorized', body);
@@ -88,16 +111,19 @@ function httpError(status: number, body: string): HttpError {
   return new HttpError(status, `HTTP error ${String(status)}`, body);
 }
 
-function apiError(payload: unknown, status: number): ApiError {
-  const fields: Params = typeof payload === 'object' && payload !== null ? (payload as Params) : {};
+function apiError(payload: unknown, status: number, headers: Headers): ApiError {
+  const fields: Params = isObject(payload) ? payload : {};
   const text = (value: unknown): string | null => (typeof value === 'string' ? value : null);
   const code = Number.isInteger(fields.code) ? (fields.code as number) : 1;
+  const result = typeof fields.result === 'object' ? fields.result : null;
   return new ApiError(
     code,
     text(fields.error) ?? 'Unknown API error',
     text(fields.key),
     text(fields.request_id),
-    status
+    status,
+    result,
+    retryAfterOf(headers, fields)
   );
 }
 
@@ -174,6 +200,14 @@ export class TronZapClient {
     data: Params = {},
     options: RequestOptions = {}
   ): Promise<ApiResult> {
+    return this.decode(await this.send(endpoint, data, options));
+  }
+
+  private async send(
+    endpoint: string,
+    data: Params,
+    options: RequestOptions
+  ): Promise<RawResponse> {
     if (!endpoint.startsWith('/')) {
       throw new InvalidRequestError('endpoint must start with /');
     }
@@ -203,13 +237,10 @@ export class TronZapClient {
       signal,
     };
 
-    let status: number;
-    let ok: boolean;
-    let text: string;
     try {
       const response = await (this.fetch ?? fetch)(this.baseUrl + endpoint, init);
-      ({ status, ok } = response);
-      text = await response.text();
+      const { status, ok, headers } = response;
+      return { status, ok, headers, text: await response.text() };
     } catch (error) {
       if (options.signal?.aborted) {
         throw options.signal.reason;
@@ -219,13 +250,15 @@ export class TronZapClient {
       }
       throw networkError(error);
     }
+  }
 
+  private decode({ status, ok, text, headers }: RawResponse): ApiResult {
     const parsed = parseJson(text);
     if (parsed !== null && !(isObject(parsed.value) && parsed.value.code === 0)) {
-      throw apiError(parsed.value, status);
+      throw apiError(parsed.value, status, headers);
     }
     if (!ok) {
-      throw httpError(status, text);
+      throw httpError(status, text, retryAfterOf(headers, {}));
     }
     if (parsed === null) {
       throw new ServerError(status, 'Invalid JSON response', text);
@@ -489,6 +522,95 @@ export class TronZapClient {
     return this.request('/v1/subscriptions/history', data, options);
   }
 
+  /**
+   * Validates and prices up to 10 000 rows of a bulk energy order. Creates a calculation valid for 10 minutes;
+   * nothing is charged. Invalid rows come back in `rejected` with their row number, starting at 1. When no row is
+   * valid, the call fails with `ErrorCode.BULK_NO_VALID_ITEMS` and the rejected rows are in `ApiError.result`.
+   * `duration` is in hours, one of the durations `getServices()` lists.
+   */
+  async bulkCalculate(
+    items: BulkItem[],
+    duration = 1,
+    options?: RequestOptions
+  ): Promise<ApiResult> {
+    if (items.length === 0) {
+      throw new InvalidRequestError('items is required');
+    }
+    const data = { resource: 'energy', duration: atLeast(duration, 1, 1), items };
+    return this.request('/v1/bulk/calculate', data, options);
+  }
+
+  /**
+   * Starts a bulk order from the calculation `id`. Nothing is charged here: each address is charged when it is
+   * processed. If the price of any row changed, the order is not started: the call fails with
+   * `ErrorCode.BULK_PRICE_CHANGED` and the new calculation is in `ApiError.result`. Repeating the call with the same
+   * `id` or `externalId` returns the order already started. With `force`, an address is still bought if its price
+   * rises while the order runs by at most `maxPriceIncrease` % (20 by default). `webhookUrl` is called once when the
+   * order becomes final.
+   */
+  async bulkCreate(
+    id: string,
+    externalId?: string,
+    force = false,
+    maxPriceIncrease?: number,
+    webhookUrl?: string,
+    options?: RequestOptions
+  ): Promise<ApiResult> {
+    const data: Params = { id: required('id', id) };
+    if (force) {
+      data.force = true;
+    }
+    if (maxPriceIncrease !== undefined) {
+      data.max_price_increase = maxPriceIncrease;
+    }
+    if (present(webhookUrl)) {
+      data.webhook_url = webhookUrl;
+    }
+    return this.request('/v1/bulk/create', this.withExternalId(data, externalId), options);
+  }
+
+  /** Takes the order `id`, its `externalId`, or both. */
+  async bulkCheck(id?: string, externalId?: string, options?: RequestOptions): Promise<ApiResult> {
+    return this.requestById('/v1/bulk/check', id, externalId, options);
+  }
+
+  /** Bulk orders, newest first. Items have the same fields as `bulkCheck`. */
+  async bulkHistory(page = 1, perPage = 10, options?: RequestOptions): Promise<ApiResult> {
+    const data = { page: atLeast(page, 1, 1), per_page: atLeast(perPage, 1, 10) };
+    return this.request('/v1/bulk/history', data, options);
+  }
+
+  /**
+   * The per-address report of a bulk order as CSV with a header line: row, address, amount, status, reason,
+   * charged, transaction_id. `status` keeps only rows with that result. Takes the order `id`, its `externalId`, or
+   * both.
+   */
+  async bulkReport(
+    id?: string,
+    externalId?: string,
+    status?: string,
+    options?: RequestOptions
+  ): Promise<string> {
+    const data: Params = this.idParams(id, externalId);
+    if (present(status)) {
+      data.status = status;
+    }
+    const response = await this.send('/v1/bulk/report', data, options ?? {});
+    const contentType = response.headers.get('content-type') ?? '';
+    if (response.ok && contentType.toLowerCase().startsWith('text/csv')) {
+      return response.text;
+    }
+    this.decode(response);
+    throw new ServerError(response.status, 'Expected a CSV report', response.text);
+  }
+
+  /** Checks the `X-Signature` header of a bulk order webhook against the raw request body. */
+  verifyWebhookSignature(body: string | Uint8Array, signature: string): boolean {
+    const expected = createHash('sha256').update(body).update(this.apiSecret).digest();
+    const given = Buffer.from(signature.trim().toLowerCase(), 'hex');
+    return given.length === expected.length && timingSafeEqual(given, expected);
+  }
+
   private async createTransaction(
     service: string,
     address: string,
@@ -519,6 +641,10 @@ export class TronZapClient {
     externalId: string | undefined,
     options: RequestOptions | undefined
   ): Promise<ApiResult> {
+    return this.request(endpoint, this.idParams(id, externalId), options);
+  }
+
+  private idParams(id: string | undefined, externalId: string | undefined): Params {
     const data: Params = {};
     if (present(id)) {
       data.id = id;
@@ -529,7 +655,7 @@ export class TronZapClient {
     if (Object.keys(data).length === 0) {
       throw new InvalidRequestError('id or externalId is required');
     }
-    return this.request(endpoint, data, options);
+    return data;
   }
 
   private withExternalId(data: Params, externalId: string | undefined): Params {
