@@ -9,6 +9,38 @@ Upgrading from 1.0.4 to 1.5.0 brings their changes as well.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-19
+
+### Added
+
+- Bulk orders: `bulkCalculate(items, duration)`, `bulkCreate(id, externalId, force, maxPriceIncrease, webhookUrl)`,
+  `bulkCheck(id, externalId)`, `bulkHistory(page, perPage)` and `bulkReport(id, externalId, status)`.
+  `bulkCalculate` takes the rows as `BulkItem` objects (`{ address, amount }`), always orders energy, and throws
+  `InvalidRequestError` before sending when there are no rows; invalid rows are not checked by the SDK and come back
+  in `rejected` with their row number. `bulkReport` returns the CSV report as a string.
+- `verifyWebhookSignature(body, signature)` checks the `X-Signature` header of a bulk order webhook against the raw
+  body, given as a string or bytes.
+- `ApiError.result` holds the data the API sends with an error, or `null`. Until now it was dropped, so the new
+  calculation of `BULK_PRICE_CHANGED`, the rejected rows of `BULK_NO_VALID_ITEMS` and the like could not be read
+  through the SDK.
+- `ApiError.retryAfter` and `RateLimitError.retryAfter` hold the seconds to wait before retrying, from the
+  `Retry-After` header or the `retry_after` field, or `null` when the API sent neither.
+- Error codes `BULK_NOT_FOUND` (90), `BULK_EXPIRED` (91), `BULK_PRICE_CHANGED` (92), `BULK_TOO_MANY_ITEMS` (93),
+  `BULK_NO_VALID_ITEMS` (94), `BULK_RESOURCE_NOT_SUPPORTED` (95), `PAYLOAD_TOO_LARGE` (96) and `RATE_LIMITED` (429).
+- `examples/basic-usage.ts` lists the bulk orders, calculates a bulk order for `TRONZAP_ADDRESS`, checks the order in
+  `TRONZAP_BULK_ID` and prints its report, and with purchases allowed starts a one-address bulk order.
+
+### Changed
+
+- The README documents that a rate limit reported by the API, HTTP 429 with a JSON body, is an `ApiError` with code
+  `RATE_LIMITED`, as it always has been; `RateLimitError` is thrown only for an HTTP 429 without an API body, such as
+  one from a proxy.
+
+### Security
+
+- Development dependencies updated to fix advisories in vitest (GHSA-qxg6-89mg-rqv8, GHSA-xp26-3454-mjgp) and
+  minimatch (GHSA-g3hv-75wg-m249). The package itself has no runtime dependencies and is not affected.
+
 ## [1.6.0] - 2026-10-09
 
 ### Added
